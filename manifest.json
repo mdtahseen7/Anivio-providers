@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "High-quality anime stream providers for Anivio",
   "scrapers": [
     {
@@ -32,7 +32,7 @@
       "id": "megaplay",
       "name": "MegaPlay",
       "description": "MegaPlay provider supporting both Sub and Dub, multi-audio, subtitle tracks, and direct high-speed HLS streams.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "supportedTypes": [
         "movie",
@@ -57,7 +57,7 @@
       "id": "anikoto",
       "name": "Anikoto",
       "description": "Anikoto anime provider supporting Sub and Dub, multi-server extraction (Vidstream-2, HD-1), multi-language subtitles, and direct HLS streams.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "supportedTypes": [
         "movie",

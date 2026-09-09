@@ -6,12 +6,13 @@
  * - Single self-contained file (no import/export)
  * - Resolves both SUB and DUB streams
  * - Supported IDs: anilist:<id>, mal:<id>, numeric TMDB id, and "603" (Anivio Test button)
- * - Direct HLS extraction with required playback headers
+ * - Stream manifest and subtitles proxied through Cloudflare Worker to strip fake PNG headers and prevent 403 / loading stalls
  */
 
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var MEGAPLAY_BASE = 'https://megaplay.buzz';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+var PROXY_HOST = 'https://luna-api.mdtahseen2901.workers.dev';
 
 function classifyId(rawId) {
     var value = String(rawId == null ? '' : rawId).trim();
@@ -30,7 +31,64 @@ function classifyId(rawId) {
     return { kind: 'unknown', id: value };
 }
 
-async function resolveAnilistId(rawId) {
+function extractSeasonNumber(text) {
+    var t = (text || '').toLowerCase().trim();
+    var sMatch = t.match(/\bseason\s*(\d+)\b/) ||
+                 t.match(/\b(\d+)(?:st|nd|rd|th)\s+season\b/) ||
+                 t.match(/\bs(\d+)\b/) ||
+                 t.match(/-season-(\d+)(?:-|$)/) ||
+                 t.match(/-(\d+)(?:st|nd|rd|th)-season(?:-|$)/) ||
+                 t.match(/\s+(\d+)$/);
+    if (sMatch) return parseInt(sMatch[1], 10);
+    if (/\b(?:season|part)\s+iv\b/.test(t)) return 4;
+    if (/\b(?:season|part)\s+iii\b/.test(t)) return 3;
+    if (/\b(?:season|part)\s+ii\b/.test(t)) return 2;
+    return 1;
+}
+
+async function resolveSeasonAnilist(title, targetSeason) {
+    if (!title || targetSeason <= 1) return null;
+    try {
+        var baseTitle = title.split(/\s*-\s*/)[0].trim();
+        var queries = [
+            baseTitle + ' ' + targetSeason,
+            baseTitle + ' Season ' + targetSeason,
+            baseTitle,
+            title
+        ];
+        var seenKitsuIds = new Set();
+        for (var q = 0; q < queries.length; q++) {
+            var res = await fetch('https://kitsu.io/api/edge/anime?filter[text]=' + encodeURIComponent(queries[q]), {
+                headers: { 'Accept': 'application/vnd.api+json', 'User-Agent': UA }
+            });
+            if (!res.ok) continue;
+            var data = await res.json();
+            var items = data && Array.isArray(data.data) ? data.data : [];
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                if (seenKitsuIds.has(item.id)) continue;
+                seenKitsuIds.add(item.id);
+                var canTitle = item.attributes ? (item.attributes.canonicalTitle || '') : '';
+                var enTitle = (item.attributes && item.attributes.titles) ? (item.attributes.titles.en || '') : '';
+                var sNum = extractSeasonNumber(canTitle + ' ' + enTitle);
+                if (sNum === targetSeason) {
+                    var zRes = await fetch(ANIZIP_ENDPOINT + '?kitsu_id=' + encodeURIComponent(item.id), {
+                        headers: { 'Accept': 'application/json', 'User-Agent': UA }
+                    });
+                    if (zRes.ok) {
+                        var zData = await zRes.json();
+                        if (zData && zData.mappings && zData.mappings.anilist_id) {
+                            return String(zData.mappings.anilist_id);
+                        }
+                    }
+                }
+            }
+        }
+    } catch (e) {}
+    return null;
+}
+
+async function resolveAnilistId(rawId, targetSeason) {
     var classified = classifyId(rawId);
 
     if (classified.kind === 'anilist') {
@@ -38,7 +96,7 @@ async function resolveAnilistId(rawId) {
     }
 
     // Anivio's built-in "Test" button always passes tmdbId = "603" with season=1, episode=1
-    // Map to a reliable anime (One Piece / 21) so the test button succeeds
+    // Map to One Piece (AniList 21)
     if (classified.id === '603') {
         return '21';
     }
@@ -46,7 +104,7 @@ async function resolveAnilistId(rawId) {
     if (classified.kind === 'mal') {
         try {
             var res = await fetch(ANIZIP_ENDPOINT + '?mal_id=' + encodeURIComponent(classified.id), {
-                headers: { 'Accept': 'application/json', 'User-Agent': 'Anivio' }
+                headers: { 'Accept': 'application/json', 'User-Agent': UA }
             });
             if (res.ok) {
                 var data = await res.json();
@@ -59,13 +117,19 @@ async function resolveAnilistId(rawId) {
     }
 
     if (classified.kind === 'tmdb') {
-        // First check if it's a valid TMDB id via AniZip
         try {
             var tmdbRes = await fetch(ANIZIP_ENDPOINT + '?themoviedb_id=' + encodeURIComponent(classified.id), {
-                headers: { 'Accept': 'application/json', 'User-Agent': 'Anivio' }
+                headers: { 'Accept': 'application/json', 'User-Agent': UA }
             });
             if (tmdbRes.ok) {
                 var tmdbData = await tmdbRes.json();
+                if (targetSeason > 1 && tmdbData && tmdbData.titles) {
+                    var primaryTitle = tmdbData.titles.en || tmdbData.titles.ro || tmdbData.titles.ja;
+                    var seasonAnilistId = await resolveSeasonAnilist(primaryTitle, targetSeason);
+                    if (seasonAnilistId) {
+                        return seasonAnilistId;
+                    }
+                }
                 if (tmdbData && tmdbData.mappings && tmdbData.mappings.anilist_id) {
                     return String(tmdbData.mappings.anilist_id);
                 }
@@ -75,7 +139,7 @@ async function resolveAnilistId(rawId) {
         // If not found by TMDB id, check if the numeric string is directly an AniList id
         try {
             var aniRes = await fetch(ANIZIP_ENDPOINT + '?anilist_id=' + encodeURIComponent(classified.id), {
-                headers: { 'Accept': 'application/json', 'User-Agent': 'Anivio' }
+                headers: { 'Accept': 'application/json', 'User-Agent': UA }
             });
             if (aniRes.ok) {
                 var aniData = await aniRes.json();
@@ -85,24 +149,21 @@ async function resolveAnilistId(rawId) {
             }
         } catch (e) {}
 
-        // Fallback directly to the numeric id
         return classified.id;
     }
 
     return null;
 }
 
-async function fetchSourceForType(anilistId, targetEp, type) {
+async function fetchSourceForType(anilistId, targetEp, type, targetSeason) {
     var embedUrl = MEGAPLAY_BASE + '/stream/ani/' + encodeURIComponent(anilistId) + '/' + encodeURIComponent(targetEp) + '/' + type;
     try {
         var pageRes = await fetch(embedUrl, {
             headers: {
                 'User-Agent': UA,
-                'Referer': MEGAPLAY_BASE + '/',
-                'Accept': 'text/html,*/*'
+                'Referer': MEGAPLAY_BASE + '/'
             }
         });
-
         if (!pageRes.ok) {
             return null;
         }
@@ -111,41 +172,48 @@ async function fetchSourceForType(anilistId, targetEp, type) {
         var dataIdMatch = html.match(/id=["']megaplay-player["'][^>]*data-id=["']([^"']+)["']/i) ||
                           html.match(/data-id=["']([^"']+)["'][^>]*id=["']megaplay-player["']/i) ||
                           html.match(/data-id=["']([a-zA-Z0-9_-]+)["']/);
-
-        var dataId = dataIdMatch ? dataIdMatch[1] : null;
-        if (!dataId) {
+        if (!dataIdMatch) {
             return null;
         }
 
-        var sourceHeaders = {
-            'User-Agent': UA,
-            'Referer': embedUrl,
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json,*/*'
-        };
+        var dataId = dataIdMatch[1];
+        var sParam = 's=tcdn';
+        if (html.indexOf('"s=tcdn"') !== -1 || html.indexOf('s=tcdn') !== -1) {
+            sParam = 's=tcdn';
+        }
+
+        var apiUrl = MEGAPLAY_BASE + '/stream/getSourcesNew?id=' + encodeURIComponent(dataId) + '&' + sParam;
+        var apiRes = await fetch(apiUrl, {
+            headers: {
+                'User-Agent': UA,
+                'Referer': embedUrl,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json, text/javascript, */*; q=0.01'
+            }
+        });
 
         var srcData = null;
-
-        // Try modern route stream/getSourcesNew first
-        try {
-            var newRes = await fetch(MEGAPLAY_BASE + '/stream/getSourcesNew?id=' + encodeURIComponent(dataId), {
-                headers: sourceHeaders
-            });
-            if (newRes.ok) {
-                srcData = await newRes.json();
-            }
-        } catch (e) {}
-
-        // Fallback to stream/getSources
-        if (!srcData || (!srcData.sources && !srcData.enc)) {
+        if (apiRes.ok) {
             try {
-                var legRes = await fetch(MEGAPLAY_BASE + '/stream/getSources?id=' + encodeURIComponent(dataId), {
-                    headers: sourceHeaders
-                });
-                if (legRes.ok) {
-                    srcData = await legRes.json();
-                }
+                srcData = await apiRes.json();
             } catch (e) {}
+        }
+
+        if (!srcData || !srcData.sources) {
+            var fallbackUrl = MEGAPLAY_BASE + '/stream/getSourcesNew?id=' + encodeURIComponent(dataId);
+            var fbRes = await fetch(fallbackUrl, {
+                headers: {
+                    'User-Agent': UA,
+                    'Referer': embedUrl,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json, text/javascript, */*; q=0.01'
+                }
+            });
+            if (fbRes.ok) {
+                try {
+                    srcData = await fbRes.json();
+                } catch (e) {}
+            }
         }
 
         if (!srcData) return null;
@@ -178,8 +246,10 @@ async function fetchSourceForType(anilistId, targetEp, type) {
                 else if (cleanLabel.indexOf('russian') !== -1 || cleanLabel.indexOf('rus') !== -1) langCode = 'ru';
                 else if (cleanLabel.indexOf('arabic') !== -1 || cleanLabel.indexOf('ara') !== -1) langCode = 'ar';
 
+                // Subtitle proxied so mobile players don't receive 403 Forbidden
+                var subProxyUrl = PROXY_HOST + '/anime/megaplay/proxy?url=' + encodeURIComponent(tr.file);
                 subtitles.push({
-                    url: tr.file,
+                    url: subProxyUrl,
                     language: langCode,
                     name: langLabel,
                     headers: {
@@ -191,10 +261,14 @@ async function fetchSourceForType(anilistId, targetEp, type) {
         }
 
         var labelType = type === 'dub' ? 'Dub' : 'Sub';
+        // Stream proxied through worker to strip 252-byte disguised PNG headers and avoid ExoPlayer loading stalls
+        var proxiedStreamUrl = PROXY_HOST + '/anime/megaplay/proxy?url=' + encodeURIComponent(m3u8Url) + '&raw=1';
+
+        var epLabel = (targetSeason && targetSeason > 1) ? 'S' + targetSeason + 'E' + targetEp : 'Ep ' + targetEp;
         return {
-            name: 'MegaPlay',
-            title: 'MegaPlay · ' + labelType + ' · Ep ' + targetEp,
-            url: m3u8Url,
+            name: 'MegaPlay (' + labelType + ')',
+            title: 'MegaPlay · ' + labelType + ' · ' + epLabel,
+            url: proxiedStreamUrl,
             quality: 'auto',
             type: 'hls',
             headers: {
@@ -211,8 +285,11 @@ async function fetchSourceForType(anilistId, targetEp, type) {
 
 async function getStreams(tmdbId, mediaType, season, episode) {
     try {
-        console.log('[megaplay] getStreams called: id=' + tmdbId + ' ep=' + episode);
-        var anilistId = await resolveAnilistId(tmdbId);
+        console.log('[megaplay] getStreams called: id=' + tmdbId + ' season=' + season + ' ep=' + episode);
+        var targetSeason = parseInt(season != null ? season : 1, 10);
+        if (isNaN(targetSeason) || targetSeason < 1) targetSeason = 1;
+
+        var anilistId = await resolveAnilistId(tmdbId, targetSeason);
         if (!anilistId) {
             console.log('[megaplay] No AniList ID resolved for ' + tmdbId);
             return [];
@@ -223,8 +300,8 @@ async function getStreams(tmdbId, mediaType, season, episode) {
 
         // Fetch both sub and dub in parallel
         var results = await Promise.all([
-            fetchSourceForType(anilistId, targetEp, 'sub'),
-            fetchSourceForType(anilistId, targetEp, 'dub')
+            fetchSourceForType(anilistId, targetEp, 'sub', targetSeason),
+            fetchSourceForType(anilistId, targetEp, 'dub', targetSeason)
         ]);
 
         var streams = [];

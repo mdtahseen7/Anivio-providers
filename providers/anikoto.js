@@ -5,13 +5,16 @@
  * - Engine: QuickJS (supports async/await natively, no transpilation)
  * - Single self-contained file (no import/export)
  * - Resolves both SUB and DUB streams
+ * - Season-aware anime matching (Season 1..N)
+ * - Proxied HLS stream extraction to strip disguised PNG headers and prevent loading stalls
+ * - Proxied WebVTT subtitles to prevent 403 Forbidden
  * - Supported IDs: anilist:<id>, mal:<id>, numeric TMDB id, and "603" (Anivio Test button)
- * - Direct HLS extraction with required playback headers
  */
 
 var ANIKOTO_BASE = 'https://anikototv.to';
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+var PROXY_HOST = 'https://luna-api.mdtahseen2901.workers.dev';
 
 function classifyId(rawId) {
     var value = String(rawId == null ? '' : rawId).trim();
@@ -34,25 +37,54 @@ function normalize(s) {
     return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-function scoreCandidate(cand, primaryEn, primaryRom) {
+function extractSeasonNumber(title, slug) {
+    var text = ((title || '') + ' ' + (slug || '')).toLowerCase();
+    
+    var sMatch = text.match(/\bseason\s*(\d+)\b/) ||
+                 text.match(/\b(\d+)(?:st|nd|rd|th)\s+season\b/) ||
+                 text.match(/\bs(\d+)\b/) ||
+                 (slug ? slug.match(/-season-(\d+)(?:-|$)/) : null) ||
+                 (slug ? slug.match(/-(\d+)(?:st|nd|rd|th)-season(?:-|$)/) : null);
+    if (sMatch) {
+        return parseInt(sMatch[1], 10);
+    }
+
+    if (/\b(?:season|part)\s+iv\b/.test(text) || /-season-iv(?:-|$)/.test(text)) return 4;
+    if (/\b(?:season|part)\s+iii\b/.test(text) || /-season-iii(?:-|$)/.test(text)) return 3;
+    if (/\b(?:season|part)\s+ii\b/.test(text) || /-season-ii(?:-|$)/.test(text)) return 2;
+
+    return 1;
+}
+
+function scoreCandidate(cand, primaryEn, primaryRom, targetSeason) {
     var score = 0;
     var candNameNorm = normalize(cand.name);
     var candJpNorm = normalize(cand.jp);
     var normEn = normalize(primaryEn);
     var normRom = normalize(primaryRom);
 
-    if (normEn && candNameNorm === normEn) score += 1000;
-    if (normRom && candNameNorm === normRom) score += 900;
-    if (normRom && candJpNorm === normRom) score += 800;
+    if (normEn && candNameNorm === normEn) score += 500;
+    if (normRom && candNameNorm === normRom) score += 400;
+    if (normRom && candJpNorm === normRom) score += 300;
 
     if (normEn) {
-        if (candNameNorm.indexOf(normEn) === 0 || normEn.indexOf(candNameNorm) === 0) score += 150;
-        else if (candNameNorm.indexOf(normEn) !== -1 || normEn.indexOf(candNameNorm) !== -1) score += 80;
+        if (candNameNorm.indexOf(normEn) !== -1 || normEn.indexOf(candNameNorm) !== -1) score += 150;
     }
     if (normRom) {
-        if (candNameNorm.indexOf(normRom) === 0 || normRom.indexOf(candNameNorm) === 0) score += 120;
-        else if (candNameNorm.indexOf(normRom) !== -1 || normRom.indexOf(candNameNorm) !== -1) score += 60;
+        if (candNameNorm.indexOf(normRom) !== -1 || normRom.indexOf(candNameNorm) !== -1) score += 100;
     }
+
+    // Strict season matching
+    var candSeason = extractSeasonNumber(cand.name, cand.slug);
+    var tSeason = parseInt(targetSeason != null ? targetSeason : 1, 10);
+    if (isNaN(tSeason) || tSeason < 1) tSeason = 1;
+
+    if (candSeason === tSeason) {
+        score += 3000;
+    } else {
+        score -= 4000;
+    }
+
     return score;
 }
 
@@ -133,17 +165,30 @@ async function searchAnikoto(query) {
 
 async function getStreams(tmdbId, mediaType, season, episode) {
     try {
-        console.log('[anikoto] getStreams called: id=' + tmdbId + ' ep=' + episode);
+        console.log('[anikoto] getStreams called: id=' + tmdbId + ' season=' + season + ' ep=' + episode);
         var meta = await resolveMetadata(tmdbId);
 
+        var targetSeason = parseInt(season != null ? season : 1, 10);
+        if (isNaN(targetSeason) || targetSeason < 1) targetSeason = 1;
+
         var candidates = [];
-        var queries = [meta.titleEn, meta.titleRom].filter(Boolean);
+        var queries = [];
+        if (targetSeason > 1) {
+            if (meta.titleEn) queries.push(meta.titleEn + ' Season ' + targetSeason);
+            if (meta.titleRom) queries.push(meta.titleRom + ' Season ' + targetSeason);
+            if (meta.titleEn) queries.push(meta.titleEn + ' ' + targetSeason);
+        }
+        if (meta.titleEn) queries.push(meta.titleEn);
+        if (meta.titleRom) queries.push(meta.titleRom);
+
         for (var i = 0; i < queries.length; i++) {
             var found = await searchAnikoto(queries[i]);
             for (var f = 0; f < found.length; f++) {
                 candidates.push(found[f]);
             }
-            if (candidates.length > 0) break;
+            if (candidates.some(function(c) { return extractSeasonNumber(c.name, c.slug) === targetSeason; })) {
+                break;
+            }
         }
 
         if (candidates.length === 0) {
@@ -152,11 +197,11 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         }
 
         candidates.sort(function(a, b) {
-            return scoreCandidate(b, meta.titleEn, meta.titleRom) - scoreCandidate(a, meta.titleEn, meta.titleRom);
+            return scoreCandidate(b, meta.titleEn, meta.titleRom, targetSeason) - scoreCandidate(a, meta.titleEn, meta.titleRom, targetSeason);
         });
 
         var chosen = candidates[0];
-        console.log('[anikoto] Chosen show: ' + chosen.name + ' (' + chosen.slug + ')');
+        console.log('[anikoto] Chosen show: ' + chosen.name + ' (' + chosen.slug + ') for Season ' + targetSeason);
 
         // Fetch watch page to get showId
         var watchRes = await fetch(ANIKOTO_BASE + '/watch/' + chosen.slug, {
@@ -218,14 +263,15 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         var typeM;
         var serverButtons = [];
         while ((typeM = typeRe.exec(srvHtml)) !== null) {
-            var typeName = typeM[1]; // 'sub', 'dub'
-            if (typeName !== 'sub' && typeName !== 'dub') continue;
+            var typeName = typeM[1]; // 'sub', 'dub', 'hsub'
+            if (typeName !== 'sub' && typeName !== 'dub' && typeName !== 'hsub') continue;
             var liMatches = typeM[2].matchAll(/<li\s+([^>]*data-link-id[^>]*)>([\s\S]*?)<\/li>/g);
             for (var li of liMatches) {
                 var linkIdMatch = li[1].match(/data-link-id="([^"]+)"/);
                 var sName = li[2].replace(/<[^>]+>/g, '').trim();
                 if (linkIdMatch && linkIdMatch[1]) {
-                    serverButtons.push({ typeName: typeName, sName: sName, linkId: linkIdMatch[1] });
+                    var canonicalType = typeName === 'dub' ? 'dub' : 'sub';
+                    serverButtons.push({ typeName: canonicalType, sName: sName, linkId: linkIdMatch[1] });
                 }
             }
         }
@@ -233,7 +279,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         var streams = [];
         var seenUrls = new Set();
 
-        // Resolve servers (prioritizing Vidstream-2 / HD-1)
+        // Resolve servers
         for (var s = 0; s < serverButtons.length; s++) {
             var sb = serverButtons[s];
             try {
@@ -296,8 +342,10 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                             else if (cleanLabel.indexOf('russian') !== -1 || cleanLabel.indexOf('rus') !== -1) langCode = 'ru';
                             else if (cleanLabel.indexOf('arabic') !== -1 || cleanLabel.indexOf('ara') !== -1) langCode = 'ar';
 
+                            // Subtitles are proxied through worker so ExoPlayer receives WebVTT with HTTP 200 without 403 Forbidden
+                            var subProxyUrl = PROXY_HOST + '/anime/megaplay/proxy?url=' + encodeURIComponent(tr.file);
                             subtitles.push({
-                                url: tr.file,
+                                url: subProxyUrl,
                                 language: langCode,
                                 name: langLabel,
                                 headers: {
@@ -309,10 +357,14 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                     }
 
                     var labelType = sb.typeName === 'dub' ? 'Dub' : 'Sub';
+                    // Stream manifest is proxied through worker to strip disguised 252-byte PNG headers and avoid loading freeze
+                    var proxiedStreamUrl = PROXY_HOST + '/anime/megaplay/proxy?url=' + encodeURIComponent(m3u8) + '&raw=1';
+
+                    var epLabel = targetSeason > 1 ? 'S' + targetSeason + 'E' + targetEp : 'Ep ' + targetEp;
                     streams.push({
-                        name: 'Anikoto',
-                        title: 'Anikoto · ' + sb.sName + ' · ' + labelType + ' · Ep ' + targetEp,
-                        url: m3u8,
+                        name: 'Anikoto (' + sb.sName + ' - ' + labelType + ')',
+                        title: 'Anikoto · ' + sb.sName + ' · ' + labelType + ' · ' + epLabel,
+                        url: proxiedStreamUrl,
                         quality: 'auto',
                         type: 'hls',
                         headers: {
