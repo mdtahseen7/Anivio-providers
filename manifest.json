@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "High-quality anime stream providers for Anivio",
   "scrapers": [
     {
@@ -64,6 +64,56 @@
         "tv"
       ],
       "filename": "providers/anikoto.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "aniwaves",
+      "name": "AniWaves",
+      "description": "AniWaves anime provider supporting Sub and Dub across multiple servers (Vidplay, DatSaV, MyCloud), subtitles, and direct HLS/MP4 streams.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/aniwaves.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "anizone",
+      "name": "AniZone",
+      "description": "AniZone anime provider supporting dual-audio (Japanese & English), full episode library, multi-language subtitles, and direct HLS streams.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/anizone.js",
       "enabled": true,
       "hasSettings": true,
       "formats": [
