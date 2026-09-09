@@ -110,10 +110,31 @@ function stripHtml(v) {
     return String(v || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function unpackPacker(packedCode) {
+function decodeDeanEdwards(packed) {
     try {
-        var fnBody = packedCode.replace(/^\s*eval\s*\(/, '(').replace(/\);\s*$/, ')');
-        return Function('"use strict"; return ' + fnBody + ';')();
+        var m = packed.match(/}\s*\('(.*)',\s*(\d+),\s*(\d+),\s*'(.*?)'\.split\('\|'\)/s);
+        if (!m) return null;
+
+        var p = m[1];
+        var a = parseInt(m[2], 10);
+        var c = parseInt(m[3], 10);
+        var k = m[4].split('|');
+
+        var encode = function(val) {
+            return (val < a ? '' : encode(Math.floor(val / a))) + ((val = val % a) > 35 ? String.fromCharCode(val + 29) : val.toString(36));
+        };
+
+        var dict = {};
+        while (c--) {
+            var key = encode(c);
+            if (k[c]) {
+                dict[key] = k[c];
+            }
+        }
+
+        return p.replace(/\b[0-9a-zA-Z]+\b/g, function(token) {
+            return Object.prototype.hasOwnProperty.call(dict, token) ? dict[token] : token;
+        });
     } catch (e) {
         return null;
     }
@@ -175,7 +196,7 @@ async function extractEmbed(embedUrl, epUrl) {
         var m3u8Url = null;
         var packedMatch = html.match(/eval\(function\(p,a,c,k,e,d\)[\s\S]*?\.split\('\|'\)[\s\S]*?\)\)/);
         if (packedMatch) {
-            var unpacked = unpackPacker(packedMatch[0]);
+            var unpacked = decodeDeanEdwards(packedMatch[0]);
             if (unpacked) {
                 var hls2Match = unpacked.match(/"hls2"\s*:\s*"([^"]+)"/) || unpacked.match(/https?:\/\/[^"']+\.m3u8[^"']*/);
                 if (hls2Match) {
