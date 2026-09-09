@@ -1,0 +1,22 @@
+{
+  "name": "Anivio Anime Providers",
+  "version": "1.0.0",
+  "description": "High-quality anime stream providers for Anivio",
+  "scrapers": [
+    {
+      "id": "anibd",
+      "name": "AniBD",
+      "description": "AniBD anime stream provider with multi-server resolution and direct HLS streams.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "supportedTypes": ["movie", "tv"],
+      "filename": "providers/anibd.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": ["m3u8"],
+      "contentLanguage": ["ja", "en"],
+      "supportedFormats": ["hls"],
+      "supportsExternalPlayer": true
+    }
+  ]
+}
