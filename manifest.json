@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -132,6 +132,60 @@
       ],
       "supportsExternalPlayer": true,
       "logo": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/sonarr.png"
+    },
+    {
+      "id": "animeonsen",
+      "name": "AnimeOnsen",
+      "description": "AnimeOnsen provider with multi-audio DASH streams, multi-language ASS subtitles (12+ languages), and intro/outro skip metadata.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/animeonsen.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "mpd"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "dash"
+      ],
+      "supportsExternalPlayer": true,
+      "logo": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/jellyseerr.png"
+    },
+    {
+      "id": "animegg",
+      "name": "AnimeGG",
+      "description": "AnimeGG provider with Sub and Dub multi-quality MP4/HLS streams via multi-server extraction.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/animegg.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8",
+        "mp4"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls",
+        "mp4"
+      ],
+      "supportsExternalPlayer": true,
+      "logo": "https://www.animegg.org/favicon.ico"
     },
     {
       "id": "anineko",
