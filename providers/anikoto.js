@@ -15,6 +15,216 @@ var ANIKOTO_BASE = 'https://anikototv.to';
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 var PROXY_HOST = 'https://luna-api.mdtahseen2901.workers.dev';
+/* MegaPlay enc-token decryptor (pure ES5, QuickJS-safe: no atob/TextEncoder/WebCrypto) */
+/* S-boxes are generated at runtime (verified AES construction) to avoid table typos */
+var MP_SBOX = null, MP_INV_SBOX = null;
+function mpBuildSboxes() {
+    if (MP_SBOX) return;
+    var exp = new Array(256), log = new Array(256), x = 1, i;
+    for (i = 0; i < 255; i++) {
+        exp[i] = x; log[x] = i;
+        x ^= ((x << 1) ^ ((x & 128) ? 27 : 0)) & 255;
+    }
+    exp[255] = exp[0];
+    function rotl(v, n) { return ((v << n) | (v >> (8 - n))) & 255; }
+    MP_SBOX = new Array(256); MP_INV_SBOX = new Array(256);
+    for (i = 0; i < 256; i++) {
+        var a = (i === 0) ? 0 : exp[(255 - log[i]) % 255];
+        var b = (a ^ rotl(a,1) ^ rotl(a,2) ^ rotl(a,3) ^ rotl(a,4) ^ 99) & 255;
+        MP_SBOX[i] = b; MP_INV_SBOX[b] = i;
+    }
+}
+
+function mpGmul(a, b) {
+    var p = 0, i;
+    for (i = 0; i < 8; i++) {
+        if (b & 1) p ^= a;
+        var hi = a & 128;
+        a = (a << 1) & 255;
+        if (hi) a ^= 27;
+        b >>= 1;
+    }
+    return p;
+}
+
+function mpKeyExpansion(keyBytes) {
+    var nk = keyBytes.length / 4, nr = nk + 6, nb = 4;
+    var w = [], i, j, temp;
+    for (i = 0; i < nk; i++) {
+        w[i] = [keyBytes[4*i], keyBytes[4*i+1], keyBytes[4*i+2], keyBytes[4*i+3]];
+    }
+    for (i = nk; i < nb * (nr + 1); i++) {
+        temp = w[i-1].slice();
+        if (i % nk === 0) {
+            var t0 = temp[0];
+            temp[0] = MP_SBOX[temp[1]] ^ (MP_RCON[i/nk] || 0);
+            temp[1] = MP_SBOX[temp[2]];
+            temp[2] = MP_SBOX[temp[3]];
+            temp[3] = MP_SBOX[t0];
+        } else if (nk > 6 && i % nk === 4) {
+            temp[0] = MP_SBOX[temp[0]];
+            temp[1] = MP_SBOX[temp[1]];
+            temp[2] = MP_SBOX[temp[2]];
+            temp[3] = MP_SBOX[temp[3]];
+        }
+        w[i] = [0,0,0,0];
+        for (j = 0; j < 4; j++) w[i][j] = w[i-nk][j] ^ temp[j];
+    }
+    return { words: w, rounds: nr };
+}
+
+var MP_RCON = [0,1,2,4,8,16,32,64,128,27,54];
+
+function mpAddRoundKey(state, words, round) {
+    var c;
+    for (c = 0; c < 4; c++) {
+        state[0][c] ^= words[round*4+c][0];
+        state[1][c] ^= words[round*4+c][1];
+        state[2][c] ^= words[round*4+c][2];
+        state[3][c] ^= words[round*4+c][3];
+    }
+}
+function mpInvSubBytes(state) {
+    var r, c;
+    for (r = 0; r < 4; r++) for (c = 0; c < 4; c++) state[r][c] = MP_INV_SBOX[state[r][c]];
+}
+function mpInvShiftRows(state) {
+    var r, t, tmp;
+    for (r = 1; r < 4; r++) {
+        for (t = 0; t < r; t++) {
+            tmp = state[r][3];
+            state[r][3] = state[r][2];
+            state[r][2] = state[r][1];
+            state[r][1] = state[r][0];
+            state[r][0] = tmp;
+        }
+    }
+}
+function mpInvMixColumns(state) {
+    var c, a0, a1, a2, a3;
+    for (c = 0; c < 4; c++) {
+        a0 = state[0][c]; a1 = state[1][c]; a2 = state[2][c]; a3 = state[3][c];
+        state[0][c] = mpGmul(a0,14) ^ mpGmul(a1,11) ^ mpGmul(a2,13) ^ mpGmul(a3,9);
+        state[1][c] = mpGmul(a0,9) ^ mpGmul(a1,14) ^ mpGmul(a2,11) ^ mpGmul(a3,13);
+        state[2][c] = mpGmul(a0,13) ^ mpGmul(a1,9) ^ mpGmul(a2,14) ^ mpGmul(a3,11);
+        state[3][c] = mpGmul(a0,11) ^ mpGmul(a1,13) ^ mpGmul(a2,9) ^ mpGmul(a3,14);
+    }
+}
+
+function mpAesDecryptBlock(block16, keyBytes) {
+    mpBuildSboxes();
+    var ks = mpKeyExpansion(keyBytes), words = ks.words, nr = ks.rounds;
+    var state = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]], r, c;
+    for (r = 0; r < 4; r++) for (c = 0; c < 4; c++) state[r][c] = block16[r + 4*c];
+    mpAddRoundKey(state, words, nr);
+    for (r = nr - 1; r >= 1; r--) {
+        mpInvShiftRows(state);
+        mpInvSubBytes(state);
+        mpAddRoundKey(state, words, r);
+        mpInvMixColumns(state);
+    }
+    mpInvShiftRows(state);
+    mpInvSubBytes(state);
+    mpAddRoundKey(state, words, 0);
+    var out = [];
+    for (c = 0; c < 4; c++) for (r = 0; r < 4; r++) out.push(state[r][c]);
+    return out;
+}
+
+function mpB64ToBytes(s) {
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    var table = {}, i;
+    for (i = 0; i < 64; i++) table[chars.charAt(i)] = i;
+    s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4 !== 0) s += '=';
+    var out = [], j, buf = 0, bits = 0;
+    for (j = 0; j < s.length; j++) {
+        var ch = s.charAt(j);
+        if (ch === '=') break;
+        if (!(ch in table)) continue;
+        buf = (buf << 6) | table[ch];
+        bits += 6;
+        if (bits >= 8) {
+            bits -= 8;
+            out.push((buf >> bits) & 255);
+            buf &= (1 << bits) - 1;
+        }
+    }
+    return out;
+}
+
+function mpStrToBytes(s) {
+    var out = [], i;
+    for (i = 0; i < s.length; i++) out.push(s.charCodeAt(i) & 255);
+    return out;
+}
+
+function mpUtf8ToStr(bytes) {
+    var out = '', i = 0, c, c2, c3;
+    while (i < bytes.length) {
+        c = bytes[i++];
+        if (c < 128) { out += String.fromCharCode(c); }
+        else if (c > 191 && c < 224) {
+            c2 = bytes[i++] || 0;
+            out += String.fromCharCode(((c & 31) << 6) | (c2 & 63));
+        } else {
+            c2 = bytes[i++] || 0; c3 = bytes[i++] || 0;
+            out += String.fromCharCode(((c & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63));
+        }
+    }
+    return out;
+}
+
+/* Decrypts a MegaPlay getSourcesNew `enc` token -> stream file URL (or '' on failure) */
+function mpDecryptEnc(enc) {
+    try {
+        var keyStr = 'i?LMTAx0Q6,:}50U', ivStr = 'W0;27ToaUpl_P%\'c';
+        var key = mpStrToBytes(keyStr);
+        while (key.length < 32) key.push(0);
+        var iv = mpStrToBytes(ivStr);
+        var ct = mpB64ToBytes(enc);
+        if (ct.length === 0 || ct.length % 16 !== 0) return '';
+        var pt = [], prev = iv, b, k, dec;
+        for (b = 0; b < ct.length; b += 16) {
+            var block = ct.slice(b, b + 16);
+            dec = mpAesDecryptBlock(block, key);
+            for (k = 0; k < 16; k++) pt.push(dec[k] ^ prev[k]);
+            prev = block;
+        }
+        var pad = pt[pt.length - 1];
+        if (pad < 1 || pad > 16) return '';
+        pt = pt.slice(0, pt.length - pad);
+        var text = mpUtf8ToStr(pt);
+        var m = text.match(/"file"\s*:\s*"([^"]+)"/);
+        if (m) return m[1].replace(/\\\//g, '/');
+        return '';
+    } catch (e) {
+        return '';
+    }
+}
+
+/* Extracts the HLS file URL from a getSourcesNew response (supports legacy `sources` + new `enc`) */
+function mpExtractFileUrl(srcData) {
+    if (!srcData) return '';
+    var s = srcData.sources;
+    if (typeof s === 'string' && s) return s;
+    if (s && typeof s === 'object') {
+        if (typeof s.file === 'string' && s.file) return s.file;
+        if (typeof s.url === 'string' && s.url) return s.url;
+        if (typeof s.length === 'number') {
+            for (var i = 0; i < s.length; i++) {
+                if (s[i]) {
+                    if (typeof s[i].file === 'string' && s[i].file) return s[i].file;
+                    if (typeof s[i].url === 'string' && s[i].url) return s[i].url;
+                }
+            }
+        }
+    }
+    if (typeof srcData.file === 'string' && srcData.file) return srcData.file;
+    if (typeof srcData.enc === 'string' && srcData.enc) return mpDecryptEnc(srcData.enc);
+    return '';
+}
+
 
 function classifyId(rawId) {
     var value = String(rawId == null ? '' : rawId).trim();
@@ -93,7 +303,7 @@ async function resolveMetadata(rawId) {
 
     // Anivio test button always passes "603"
     if (classified.id === '603') {
-        return { titleEn: 'One Piece', titleRom: 'One Piece', anilistId: '21' };
+        return { titleEn: 'One Piece', titleRom: 'One Piece', anilistId: '21', malId: '21' };
     }
 
     var query = null;
@@ -112,7 +322,8 @@ async function resolveMetadata(rawId) {
                     return {
                         titleEn: data.titles.en || data.titles.ro || data.titles.ja || '',
                         titleRom: data.titles.ro || data.titles.en || '',
-                        anilistId: data.mappings ? String(data.mappings.anilist_id) : ''
+                        anilistId: data.mappings ? String(data.mappings.anilist_id || '') : '',
+                        malId: data.mappings && data.mappings.mal_id != null ? String(data.mappings.mal_id) : (classified.kind === 'mal' ? classified.id : '')
                     };
                 }
             }
@@ -130,14 +341,15 @@ async function resolveMetadata(rawId) {
                     return {
                         titleEn: aData.titles.en || aData.titles.ro || '',
                         titleRom: aData.titles.ro || aData.titles.en || '',
-                        anilistId: classified.id
+                        anilistId: classified.id,
+                        malId: aData.mappings && aData.mappings.mal_id != null ? String(aData.mappings.mal_id) : ''
                     };
                 }
             }
         } catch (e) {}
     }
 
-    return { titleEn: classified.id, titleRom: classified.id, anilistId: '' };
+    return { titleEn: classified.id, titleRom: classified.id, anilistId: '', malId: (classified.kind === 'mal' ? classified.id : '') };
 }
 
 async function searchAnikoto(query) {
@@ -161,6 +373,54 @@ async function searchAnikoto(query) {
         });
     }
     return candidates;
+}
+
+/* Fetches a show's watch page + episode index (results cached per slug within one getStreams call) */
+async function fetchShowEpisodeIndex(slug, cache) {
+    if (cache && cache[slug]) return cache[slug];
+    try {
+        var watchRes = await fetch(ANIKOTO_BASE + '/watch/' + slug, {
+            headers: { 'User-Agent': UA, 'Referer': ANIKOTO_BASE + '/' }
+        });
+        if (!watchRes.ok) return null;
+        var watchHtml = await watchRes.text();
+        var showIdMatch = watchHtml.match(/data-id=["'](\d+)["']/);
+        if (!showIdMatch) return null;
+        var epRes = await fetch(ANIKOTO_BASE + '/ajax/episode/list/' + showIdMatch[1], {
+            headers: {
+                'User-Agent': UA,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Referer': ANIKOTO_BASE + '/watch/' + slug
+            }
+        });
+        if (!epRes.ok) return null;
+        var epJson = await epRes.json();
+        var out = { showId: showIdMatch[1], epHtml: epJson && epJson.result ? epJson.result : '' };
+        if (cache) cache[slug] = out;
+        return out;
+    } catch (e) {
+        return null;
+    }
+}
+
+/* Reads the MAL id stamped on an episode-list entry (target episode preferred, else first entry) */
+function readEpTagMal(epHtml, targetEp) {
+    if (!epHtml) return '';
+    var tagRe = /<a\s+[^>]*data-id="[^"]*"[^>]*>/g;
+    var m, firstMal = '', targetMal = '';
+    var want = parseInt(targetEp != null ? targetEp : 1, 10);
+    while ((m = tagRe.exec(epHtml)) !== null) {
+        var tag = m[0];
+        var malM = tag.match(/data-mal="([^"]*)"/);
+        var mal = malM ? malM[1] : '';
+        if (mal && !firstMal) firstMal = mal;
+        var numM = tag.match(/data-num="([^"]*)"/);
+        if (mal && numM && parseInt(numM[1], 10) === want) {
+            targetMal = mal;
+            break;
+        }
+    }
+    return targetMal || firstMal;
 }
 
 async function getStreams(tmdbId, mediaType, season, episode) {
@@ -200,33 +460,37 @@ async function getStreams(tmdbId, mediaType, season, episode) {
             return scoreCandidate(b, meta.titleEn, meta.titleRom, targetSeason) - scoreCandidate(a, meta.titleEn, meta.titleRom, targetSeason);
         });
 
-        var chosen = candidates[0];
-        console.log('[anikoto] Chosen show: ' + chosen.name + ' (' + chosen.slug + ') for Season ' + targetSeason);
-
-        // Fetch watch page to get showId
-        var watchRes = await fetch(ANIKOTO_BASE + '/watch/' + chosen.slug, {
-            headers: { 'User-Agent': UA, 'Referer': ANIKOTO_BASE + '/' }
-        });
-        if (!watchRes.ok) return [];
-        var watchHtml = await watchRes.text();
-        var showIdMatch = watchHtml.match(/data-id=["'](\d+)["']/);
-        if (!showIdMatch) return [];
-        var showId = showIdMatch[1];
-
-        // Episode list
         var targetEp = parseInt(episode != null ? episode : 1, 10);
         if (isNaN(targetEp) || targetEp < 1) targetEp = 1;
 
-        var epRes = await fetch(ANIKOTO_BASE + '/ajax/episode/list/' + showId, {
-            headers: {
-                'User-Agent': UA,
-                'X-Requested-With': 'XMLHttpRequest',
-                'Referer': ANIKOTO_BASE + '/watch/' + chosen.slug
+        // ID-direct verification (megaplay-style): title search discovers candidates,
+        // but the final pick must carry the expected MAL id stamped in its episode index.
+        var chosen = candidates[0];
+        var indexCache = {};
+        if (meta.malId) {
+            var verified = null;
+            var checkN = Math.min(candidates.length, 5);
+            for (var v = 0; v < checkN; v++) {
+                var idx = await fetchShowEpisodeIndex(candidates[v].slug, indexCache);
+                if (idx && readEpTagMal(idx.epHtml, targetEp) === String(meta.malId)) {
+                    verified = candidates[v];
+                    break;
+                }
             }
-        });
-        if (!epRes.ok) return [];
-        var epJson = await epRes.json();
-        var epHtml = epJson && epJson.result ? epJson.result : '';
+            if (verified) {
+                chosen = verified;
+                console.log('[anikoto] MAL-verified show: ' + chosen.name + ' (' + chosen.slug + ') mal=' + meta.malId);
+            } else {
+                console.log('[anikoto] No MAL match for mal=' + meta.malId + ', using best title match');
+            }
+        }
+        console.log('[anikoto] Chosen show: ' + chosen.name + ' (' + chosen.slug + ') for Season ' + targetSeason);
+
+        // Watch page + episode index (reuses the fetch already done during verification)
+        var index = indexCache[chosen.slug] || await fetchShowEpisodeIndex(chosen.slug, indexCache);
+        if (!index) return [];
+        var showId = index.showId;
+        var epHtml = index.epHtml;
 
         var epRe = /<a\s+[^>]*data-id="([^"]*)"[^>]*>/g;
         var epM;
@@ -317,10 +581,8 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                     });
                     if (!srcRes.ok) continue;
                     var srcData = await srcRes.json();
-                    var m3u8 = srcData && srcData.sources && srcData.sources.file ? srcData.sources.file : null;
-                    if (!m3u8 && Array.isArray(srcData && srcData.sources) && srcData.sources[0]) {
-                        m3u8 = srcData.sources[0].file || srcData.sources[0].url || null;
-                    }
+                    // Supports legacy plain `sources` AND the new AES-encrypted `enc` token
+                    var m3u8 = mpExtractFileUrl(srcData) || null;
                     if (!m3u8 || seenUrls.has(m3u8)) continue;
                     seenUrls.add(m3u8);
 

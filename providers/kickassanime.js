@@ -344,7 +344,8 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                             type: 'hls',
                             headers: {
                                 'User-Agent': UA,
-                                'Referer': 'https://krussdomi.com/'
+                                'Referer': 'https://krussdomi.com/',
+                                'Origin': 'https://krussdomi.com'
                             },
                             subtitles: playerData.subtitles
                         });
@@ -361,7 +362,8 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                         type: rawUrl.indexOf('.m3u8') !== -1 ? 'hls' : 'mp4',
                         headers: {
                             'User-Agent': UA,
-                            'Referer': 'https://krussdomi.com/'
+                            'Referer': 'https://krussdomi.com/',
+                            'Origin': 'https://krussdomi.com'
                         },
                         subtitles: []
                     });
