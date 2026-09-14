@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -212,6 +212,32 @@
       ],
       "supportsExternalPlayer": true,
       "logo": "https://hianime.at/theme/images/icons-192.png"
+    },
+    {
+      "id": "uniquestream",
+      "name": "AnimeStream",
+      "description": "AnimeStream (UniqueStream) provider with direct Sub/Dub HLS streams and multi-language WebVTT subtitles via public JSON API.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/uniquestream.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true,
+      "logo": "https://anime.uniquestream.net/images/site/logo.png"
     },
     {
       "id": "anineko",
