@@ -127,9 +127,10 @@ async function fetchAudioStreams(apiBase, anilistId, targetEp, audio) {
             var mediaType = isHls ? 'hls' : 'mp4';
 
             var headers = src.headers || {
-                'Referer': 'https://mkissa.to',
+                'Referer': 'https://mkissa.to/',
                 'User-Agent': UA
             };
+            if (headers.Referer === 'https://mkissa.to') headers.Referer = 'https://mkissa.to/';
 
             results.push({
                 name: 'MKissa',
@@ -142,6 +143,13 @@ async function fetchAudioStreams(apiBase, anilistId, targetEp, audio) {
             });
         }
 
+        // Prefer the direct Fast4Speed MP4 over the Wix HLS playlist. Both are
+        // valid, but the direct file avoids HLS startup/variant negotiation
+        // stalls on some Android Media3 builds. HLS remains as a fallback.
+        results.sort(function (a, b) {
+            if (a.type === b.type) return 0;
+            return a.type === 'mp4' ? -1 : 1;
+        });
         return results;
     } catch (e) {
         console.warn('[mkissa] error fetching ' + audio + ': ' + (e && e.message));
