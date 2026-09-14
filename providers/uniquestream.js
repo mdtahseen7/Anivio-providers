@@ -89,46 +89,86 @@ async function apiJson(path) {
 }
 
 function scoreCandidate(titles, title) {
-    var best = 0, i;
+    var d = 0, i, t = normalize(title);
     for (i = 0; i < titles.length; i++) {
-        best = Math.max(best, dice(titles[i], title));
+        var n = normalize(titles[i]);
+        if (!n) continue;
+        d = Math.max(d, dice(titles[i], title));
+        // Site titles are often the short/common form of long mapping titles.
+        // A substring match is strong evidence, catch it even when the dice
+        // score is diluted by the extra subtitle tokens.
+        if (n.length >= 4 && n === t) return 1;
+        if (t.length >= 4 && (n.indexOf(t) >= 0 || t.indexOf(n) >= 0)) {
+            var c = 0.9 - 0.1 * (Math.abs(n.length - t.length) / Math.max(1, n.length + t.length));
+            if (c > d) d = c;
+        }
     }
-    return best;
+    return d;
 }
 
 async function findSeries(meta, isMovie) {
     var key = 'series:' + meta.anilistId + ':' + (isMovie ? 'm' : 't');
     if (CACHE[key]) return CACHE[key];
     var titles = [meta.titleEn, meta.titleRom];
-    var queries = {}, i;
+    var primary = [], fallback = [], seen = {}, i;
+
+    function addQuery(list, s) {
+        s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+        if (s && !seen[s.toLowerCase()]) { seen[s.toLowerCase()] = 1; list.push(s); }
+    }
     for (i = 0; i < titles.length; i++) {
         if (!titles[i]) continue;
-        queries[titles[i]] = 1;
-        var plain = String(titles[i]).replace(/[^a-zA-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-        if (plain) queries[plain] = 1;
-    }
-    var all = {}, qs = Object.keys(queries), q;
-    for (q = 0; q < qs.length; q++) {
-        var data;
-        try {
-            data = await apiJson('/search?query=' + encodeURIComponent(qs[q]));
-        } catch (e) { continue; }
-        var pool = isMovie ? (data.movies || []) : (data.series || []);
-        for (i = 0; i < pool.length; i++) {
-            var it = pool[i];
-            if (!it || !it.content_id || all[it.content_id]) continue;
-            var score = scoreCandidate(titles, it.title || '');
-            if (score >= 0.45) {
-                all[it.content_id] = {
-                    contentId: it.content_id,
-                    title: it.title || '',
-                    score: score,
-                    episodesCount: Number(it.episodes_count) || 0
-                };
-            }
+        addQuery(primary, titles[i]);
+        addQuery(primary, String(titles[i]).replace(/[^a-zA-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim());
+        var toks = String(titles[i]).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/);
+        var sig = [], j;
+        for (j = 0; j < toks.length; j++) {
+            var t = toks[j];
+            if (t.length < 4) continue;
+            var sw = { the: 1, and: 1, with: 1, from: 1, they: 1, have: 1, this: 1, that: 1, than: 1, into: 1, your: 1, were: 1, been: 1, what: 1, will: 1, when: 1, then: 1, where: 1, about: 1, after: 1, before: 1, anime: 1, series: 1, movie: 1 };
+            if (!sw[t]) sig.push(t);
         }
-        if (qs.length > 1 && Object.keys(all).length >= 12) break;
+        for (j = 1; j < sig.length; j++) addQuery(fallback, sig[j - 1] + ' ' + sig[j]);
+        if (sig.length >= 3) addQuery(fallback, sig[0] + ' ' + sig[1] + ' ' + sig[2]);
     }
+    // Single strongest token as last resort for verbose titles
+    // (site search is token-based, e.g. "Inept Villainess" their stored title).
+    var bestTok = '';
+    titles.forEach(function (ti) {
+        var toks = String(ti).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/), j;
+        for (j = 0; j < toks.length; j++) {
+            if (toks[j].length > bestTok.length) bestTok = toks[j];
+        }
+    });
+    if (bestTok.length >= 4) addQuery(fallback, bestTok);
+
+    var all = {}, qs = primary, q;
+    async function runQueries(list) {
+        for (q = 0; q < list.length; q++) {
+            var data;
+            try {
+                data = await apiJson('/search?query=' + encodeURIComponent(list[q]));
+            } catch (e) { continue; }
+            var pool = isMovie ? (data.movies || []) : (data.series || []);
+            for (i = 0; i < pool.length; i++) {
+                var it = pool[i];
+                if (!it || !it.content_id || all[it.content_id]) continue;
+                var score = scoreCandidate(titles, it.title || '');
+                if (score >= 0.45) {
+                    all[it.content_id] = {
+                        contentId: it.content_id,
+                        title: it.title || '',
+                        score: score,
+                        episodesCount: Number(it.episodes_count) || 0
+                    };
+                }
+            }
+            if (list.length > 1 && Object.keys(all).length >= 12) break;
+        }
+    }
+    await runQueries(primary);
+    if (!Object.keys(all).length) await runQueries(fallback);
+
     var ranked = Object.keys(all).map(function (k) { return all[k]; })
         .sort(function (a, b) { return b.score - a.score; })
         .slice(0, 6);
