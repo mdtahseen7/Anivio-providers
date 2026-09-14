@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -268,8 +268,8 @@
     {
       "id": "mkissa",
       "name": "MKissa",
-      "description": "MKissa anime provider via Anivexa API with SUB and DUB streams.",
-      "version": "1.0.0",
+      "description": "MKissa anime provider via Anivexa API with validated direct SUB and DUB HLS/MP4 streams.",
+      "version": "1.0.1",
       "author": "mdtahseen7",
       "logo": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/jellyfin.png",
       "supportedTypes": [

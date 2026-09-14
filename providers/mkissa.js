@@ -107,12 +107,24 @@ async function fetchAudioStreams(apiBase, anilistId, targetEp, audio) {
             var src = data.sources[i];
             if (!src) continue;
 
-            var finalUrl = src.extractedUrl || src.url;
+            // The API also returns iframe fallback entries (`type: iframe`).
+            // They are HTML pages, not media URLs, and passing them to the HLS
+            // player leaves ExoPlayer loading forever. Only use extracted
+            // direct media URLs, or an explicitly media-looking URL.
+            var finalUrl = src.extractedUrl || '';
+            if (!finalUrl && src.type !== 'player') continue;
+            if (!finalUrl && src.url && /\.(?:m3u8|mp4)(?:[?#]|$)/i.test(src.url)) {
+                finalUrl = src.url;
+            }
             if (!finalUrl || finalUrl.indexOf('http') !== 0) continue;
 
             var serverName = src.name || ('Server ' + (i + 1));
-            var isHls = (src.extractedType === 'hls') || (finalUrl.indexOf('.m3u8') !== -1);
-            var mediaType = isHls ? 'hls' : (src.extractedType === 'mp4' ? 'mp4' : 'hls');
+            var isHls = (src.extractedType === 'hls') || /\.m3u8(?:[?#]|$)/i.test(finalUrl);
+            var isMp4 = src.extractedType === 'mp4' ||
+                /\.mp4(?:[?#]|$)/i.test(finalUrl) ||
+                /\/media(?:3)?\/videos\//i.test(finalUrl);
+            if (!isHls && !isMp4) continue;
+            var mediaType = isHls ? 'hls' : 'mp4';
 
             var headers = src.headers || {
                 'Referer': 'https://mkissa.to',
