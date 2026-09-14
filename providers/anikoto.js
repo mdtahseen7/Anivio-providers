@@ -571,7 +571,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                     var dId = dIdMatch ? dIdMatch[1] : null;
                     if (!dId) continue;
 
-                    var srcRes = await fetch('https://megaplay.buzz/stream/getSourcesNew?id=' + encodeURIComponent(dId), {
+                    var srcRes = await fetch('https://megaplay.buzz/stream/getSourcesNew?id=' + encodeURIComponent(dId) + '&s=tcdn', {
                         headers: {
                             'User-Agent': UA,
                             'Referer': embedUrl,
@@ -581,7 +581,8 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                     });
                     if (!srcRes.ok) continue;
                     var srcData = await srcRes.json();
-                    // Supports legacy plain `sources` AND the new AES-encrypted `enc` token
+                    // Supports legacy plain `sources` AND the new AES-encrypted `enc` token.
+                    // The tcdn parameter keeps the response on the current CDN rotation.
                     var m3u8 = mpExtractFileUrl(srcData) || null;
                     if (!m3u8 || seenUrls.has(m3u8)) continue;
                     seenUrls.add(m3u8);

@@ -409,7 +409,10 @@ async function fetchSourceForType(anilistId, targetEp, type, targetSeason) {
             } catch (e) {}
         }
 
-        if (!srcData || !srcData.sources) {
+        // New responses normally contain an encrypted `enc` token instead of
+        // a plain `sources` field. Keep that valid response rather than
+        // selecting a different, potentially dead CDN in the fallback.
+        if (!srcData || (!srcData.sources && !srcData.enc)) {
             var fallbackUrl = MEGAPLAY_BASE + '/stream/getSourcesNew?id=' + encodeURIComponent(dataId);
             var fbRes = await fetch(fallbackUrl, {
                 headers: {
