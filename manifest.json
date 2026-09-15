@@ -557,6 +557,32 @@
         "hls"
       ],
       "supportsExternalPlayer": true
+    },
+    {
+      "id": "nyaa",
+      "name": "Nyaa",
+      "description": "Nyaa direct torrent provider searching nyaa.si for high-seed anime torrents.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://nyaa.si/static/favicon.png",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/nyaa.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "torrent"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "torrent"
+      ],
+      "supportsExternalPlayer": true
     }
   ]
 }

@@ -7,13 +7,18 @@
  *   season  GET /api/v1/season/<id>/episodes?page=&limit=
  *   media   GET /api/v1/episode/<id>/media/hls/<locale>
  *         GET /api/v1/movie/<id>/media/hls/<locale>
- * Streams are standard AES-128 HLS on a signed CDN URL (no proxy needed).
+ * HLS is AES-128 but key.bin is wrapped: base64 ciphertext that must be
+ * fetched with `x-am-media-id: <media_id>` and unwrapped via
+ * SHA256("key"+mid)[:16] / SHA256("iv"+mid)[:16] (see Yuzono's
+ * UniqueStreamHlsServer.kt). Segments are proxied+decrypted via Luna:
+ * https://luna-api.mdtahseen2901.workers.dev/anime/uniquestream/proxy
  */
 
 var BASE = 'https://anime.uniquestream.net';
 var API = 'https://anime.uniquestream.net/api/v1';
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+var LUNA_PROXY = 'https://luna-api.mdtahseen2901.workers.dev/anime/uniquestream/proxy';
 var CACHE = {};
 
 function classifyId(rawId) {
@@ -232,9 +237,10 @@ async function resolveAudio(kind, contentId, locale, label, episodeNumber) {
     } catch (e) { return null; }
     var hls = media && media.hls;
     if (!hls || !hls.playlist) return null;
-    // The endpoint falls back to the original locale when the requested one
-    // is missing. Only accept an exact locale match (no sub labeled as dub).
     if (String(hls.locale || '').toLowerCase() !== locale.toLowerCase()) return null;
+    var mid = media && media.media_id ? String(media.media_id) : '';
+    if (!mid) return null;
+    var proxied = LUNA_PROXY + '?url=' + encodeURIComponent(hls.playlist) + '&mid=' + encodeURIComponent(mid);
     var headers = { 'User-Agent': UA, 'Referer': BASE + '/' };
     var subtitles = [], tracks = Array.isArray(hls.subtitles) ? hls.subtitles : [], i;
     for (i = 0; i < tracks.length; i++) {
@@ -249,7 +255,7 @@ async function resolveAudio(kind, contentId, locale, label, episodeNumber) {
     return {
         name: 'AnimeStream (' + label + ')',
         title: 'AnimeStream · ' + label + ' · Ep ' + episodeNumber,
-        url: hls.playlist,
+        url: proxied,
         quality: 'auto',
         type: 'hls',
         headers: headers,
