@@ -424,6 +424,139 @@
         "hls"
       ],
       "supportsExternalPlayer": true
+    },
+    {
+      "id": "anichi",
+      "name": "AniChi",
+      "description": "AniChi anime provider with Sub and Dub HLS streams via MegaPlay extraction and multi-language subtitles.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://anichi.to/favicon.ico",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/anichi.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "anikage",
+      "name": "Anikage",
+      "description": "Anikage anime provider with Sub and Dub HLS/MP4 streams, multi-quality variants, and subtitles.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://anikage.cc/favicon.ico",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/anikage.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8",
+        "mp4"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls",
+        "mp4"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "animeparadise",
+      "name": "AnimeParadise",
+      "description": "AnimeParadise provider with direct HLS streams and subtitle tracks.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://animeparadise.moe/favicon.ico",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/animeparadise.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "aniwave",
+      "name": "AniWave",
+      "description": "AniWave anime provider with Sub and Dub HLS streams via MegaPlay extraction and multi-language subtitles.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://animewave.to/favicon.ico",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/aniwave.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "hahomoe",
+      "name": "HahoMoe",
+      "description": "HahoMoe hentai provider with multi-quality direct MP4 streams.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://haho.moe/favicon.ico",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/hahomoe.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "mp4"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "mp4",
+        "hls"
+      ],
+      "supportsExternalPlayer": true
     }
   ]
 }
