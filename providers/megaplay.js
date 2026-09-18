@@ -436,6 +436,27 @@ async function fetchSourceForType(anilistId, targetEp, type, targetSeason) {
 
         if (!m3u8Url) return null;
 
+        // Verify the CDN is reachable — some domains (e.g. fetch.nexabloom.top)
+        // are behind Cloudflare/openresty WAF and block server-side requests,
+        // which would cause the Luna proxy to return a garbled 403 HTML page.
+        try {
+            var cdnCheck = await fetch(m3u8Url, {
+                method: 'HEAD',
+                headers: {
+                    'User-Agent': UA,
+                    'Referer': MEGAPLAY_BASE + '/',
+                    'Origin': MEGAPLAY_BASE
+                }
+            });
+            if (!cdnCheck.ok) {
+                console.warn('[megaplay] CDN ' + m3u8Url.slice(0,60) + ' returned ' + cdnCheck.status);
+                return null;
+            }
+        } catch (e) {
+            console.warn('[megaplay] CDN unreachable for ' + m3u8Url.slice(0,60) + ': ' + (e && e.message));
+            return null;
+        }
+
         // Process subtitle tracks
         var subtitles = [];
         var rawTracks = Array.isArray(srcData.tracks) ? srcData.tracks : [];
