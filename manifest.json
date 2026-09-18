@@ -583,6 +583,32 @@
         "torrent"
       ],
       "supportsExternalPlayer": true
+    },
+    {
+      "id": "anixo",
+      "name": "Anixo",
+      "description": "Anixo stream relay (MegaPlay/AniNeko/Zoko) with intro/outro skip markers and subtitles.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://anixo.buzz/favicon.ico",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/anixo.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "hls"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true
     }
   ]
 }
