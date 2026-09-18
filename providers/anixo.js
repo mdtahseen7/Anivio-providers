@@ -10,6 +10,7 @@
 
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var ANIXO_BASE = 'https://anixo.buzz';
+var PROXY_HOST = 'https://luna-api.mdtahseen2901.workers.dev';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 function classifyId(rawId) {
@@ -48,7 +49,8 @@ function parseSubtitles(rawTracks) {
         var t = rawTracks[i];
         if (!t || !t.url) continue;
         var label = t.label || 'English';
-        out.push({ url: t.url, language: label.toLowerCase().slice(0, 2), name: label, headers: { 'User-Agent': UA, 'Referer': ANIXO_BASE + '/' } });
+        var proxied = PROXY_HOST + '/anime/megaplay/proxy?url=' + encodeURIComponent(t.url);
+        out.push({ url: proxied, language: label.toLowerCase().slice(0, 2), name: label, headers: { 'User-Agent': UA, 'Referer': ANIXO_BASE + '/' } });
     }
     return out;
 }
