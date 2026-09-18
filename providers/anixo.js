@@ -23,20 +23,23 @@ function classifyId(rawId) {
 async function getMapping(rawId) {
     var c = classifyId(rawId);
     if (c.id === '603') return { anilistId: '21', kitsuId: '12', imdbId: 'tt0388629' };
-    var q = null;
-    if (c.kind === 'anilist') q = 'anilist_id=' + encodeURIComponent(c.id);
-    else if (c.kind === 'mal') q = 'mal_id=' + encodeURIComponent(c.id);
-    else if (c.kind === 'tmdb') q = 'themoviedb_id=' + encodeURIComponent(c.id);
-    else if (/^\d+$/.test(c.id)) q = 'anilist_id=' + encodeURIComponent(c.id);
-    if (!q) return null;
-    try {
-        var res = await fetch(ANIZIP_ENDPOINT + '?' + q, { headers: { 'User-Agent': UA, 'Accept': 'application/json' } });
-        if (!res.ok) return null;
-        var data = await res.json();
-        if (!data || !data.mappings) return null;
-        var m = data.mappings;
-        return { anilistId: m.anilist_id ? String(m.anilist_id) : null, kitsuId: m.kitsu_id ? String(m.kitsu_id) : null, imdbId: m.imdb_id ? String(m.imdb_id) : null };
-    } catch (e) { return null; }
+    var queries = [];
+    if (c.kind === 'anilist') queries.push('anilist_id=' + encodeURIComponent(c.id));
+    else if (c.kind === 'mal') queries.push('mal_id=' + encodeURIComponent(c.id));
+    else if (c.kind === 'tmdb') queries.push('themoviedb_id=' + encodeURIComponent(c.id));
+    if (/^\d+$/.test(c.id)) queries.push('anilist_id=' + encodeURIComponent(c.id));
+    for (var qi = 0; qi < queries.length; qi++) {
+        try {
+            var res = await fetch(ANIZIP_ENDPOINT + '?' + queries[qi], { headers: { 'User-Agent': UA, 'Accept': 'application/json' } });
+            if (!res.ok) continue;
+            var data = await res.json();
+            if (data && data.mappings) {
+                var m = data.mappings;
+                return { anilistId: m.anilist_id ? String(m.anilist_id) : null, kitsuId: m.kitsu_id ? String(m.kitsu_id) : null, imdbId: m.imdb_id ? String(m.imdb_id) : null };
+            }
+        } catch (e) {}
+    }
+    return null;
 }
 function parseSubtitles(rawTracks) {
     var out = [];
