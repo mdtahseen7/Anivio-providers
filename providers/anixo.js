@@ -10,8 +10,26 @@
 
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var ANIXO_BASE = 'https://anixo.buzz';
-var PROXY_HOST = 'https://luna-api.mdtahseen2901.workers.dev';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+function getProxyBase() {
+    return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
+        ? String(SCRAPER_SETTINGS.backend_url).replace(/\/+$/, '')
+        : 'https://api.luna-stream.me';
+}
+
+function getApiKey() {
+    return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.api_key)
+        ? SCRAPER_SETTINGS.api_key
+        : 'LetMeIn';
+}
+
+function getProxyUrl(targetUrl, referer) {
+    if (!targetUrl) return '';
+    return getProxyBase() + '/proxy?url=' + encodeURIComponent(targetUrl)
+        + (referer ? ('&referer=' + encodeURIComponent(referer)) : '')
+        + '&apiKey=' + encodeURIComponent(getApiKey());
+}
 
 function classifyId(rawId) {
     var v = String(rawId == null ? '' : rawId).trim();
@@ -49,7 +67,7 @@ function parseSubtitles(rawTracks) {
         var t = rawTracks[i];
         if (!t || !t.url) continue;
         var label = t.label || 'English';
-        var proxied = PROXY_HOST + '/anime/megaplay/proxy?url=' + encodeURIComponent(t.url);
+        var proxied = getProxyBase() + '/anime/megaplay/proxy?url=' + encodeURIComponent(t.url) + '&apiKey=' + encodeURIComponent(getApiKey());
         out.push({ url: proxied, language: label.toLowerCase().slice(0, 2), name: label, headers: { 'User-Agent': UA, 'Referer': ANIXO_BASE + '/' } });
     }
     return out;

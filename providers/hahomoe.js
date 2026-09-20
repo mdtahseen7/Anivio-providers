@@ -12,6 +12,19 @@
 var BASE = 'https://haho.moe';
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+function getProxyUrl(targetUrl, referer) {
+    if (!targetUrl) return '';
+    var base = (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
+        ? String(SCRAPER_SETTINGS.backend_url).replace(/\/+$/, '')
+        : 'https://api.luna-stream.me';
+    var apiKey = (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.api_key)
+        ? SCRAPER_SETTINGS.api_key
+        : 'LetMeIn';
+    return base + '/proxy?url=' + encodeURIComponent(targetUrl)
+        + (referer ? ('&referer=' + encodeURIComponent(referer)) : '')
+        + '&apiKey=' + encodeURIComponent(apiKey);
+}
 var CACHE = {};
 
 function classifyId(rawId) {
@@ -289,6 +302,7 @@ async function extractVideoSources(episodeUrl) {
     }
     var iframeHtml = await fetchText(iframeSrc, { 'Referer': episodeUrl, 'Cookie': 'loop-view=thumb' });
     var sources = [];
+    var subtitles = [];
     var re = /<source\b[^>]*>/gi, sm;
     while ((sm = re.exec(iframeHtml)) !== null) {
         var tag = sm[0];
@@ -305,7 +319,22 @@ async function extractVideoSources(episodeUrl) {
         var type = src.indexOf('.m3u8') !== -1 ? 'hls' : 'mp4';
         sources.push({ src: src, quality: quality, type: type });
     }
-    return sources;
+    var trackRe = /<track\b[^>]*kind=["']subtitles["'][^>]*>/gi, tm;
+    while ((tm = trackRe.exec(iframeHtml)) !== null) {
+        var trackTag = tm[0];
+        var trackSrc = attr(trackTag, 'src');
+        if (!trackSrc) continue;
+        if (trackSrc.indexOf('//') === 0) trackSrc = 'https:' + trackSrc;
+        else if (trackSrc.indexOf('http') !== 0) trackSrc = BASE + (trackSrc.charAt(0) === '/' ? '' : '/') + trackSrc;
+        var label = attr(trackTag, 'label') || 'English';
+        subtitles.push({
+            url: getProxyUrl(trackSrc, BASE + '/'),
+            language: label.toLowerCase().slice(0, 2),
+            name: label,
+            headers: { 'Referer': BASE + '/', 'User-Agent': UA }
+        });
+    }
+    return { sources: sources, subtitles: subtitles };
 }
 
 async function getStreams(rawId, mediaType, season, episode) {
@@ -323,12 +352,14 @@ async function getStreams(rawId, mediaType, season, episode) {
         var ep = null;
         for (var i = 0; i < series.episodes.length; i++) if (series.episodes[i].number === n) { ep = series.episodes[i]; break; }
         if (!ep) return [];
-        var sources;
+        var extracted;
         try {
-            sources = await extractVideoSources(ep.url);
+            extracted = await extractVideoSources(ep.url);
         } catch (e) {
             return [];
         }
+        var sources = extracted.sources || [];
+        var subtitles = extracted.subtitles || [];
         if (!sources.length) return [];
         var out = [];
         for (var s = 0; s < sources.length; s++) {
@@ -340,7 +371,7 @@ async function getStreams(rawId, mediaType, season, episode) {
                 quality: so.quality,
                 type: so.type,
                 headers: { 'Referer': BASE + '/', 'User-Agent': UA },
-                subtitles: []
+                subtitles: subtitles
             });
         }
         // sort by quality descending: 1080p > 720p > 480p > 360p

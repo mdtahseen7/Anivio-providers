@@ -19,6 +19,19 @@ function getApiBase() {
     return DEFAULT_API_URL;
 }
 
+function getProxyUrl(targetUrl, referer) {
+    if (!targetUrl) return '';
+    var base = (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
+        ? String(SCRAPER_SETTINGS.backend_url).replace(/\/+$/, '')
+        : 'https://api.luna-stream.me';
+    var apiKey = (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.api_key)
+        ? SCRAPER_SETTINGS.api_key
+        : 'LetMeIn';
+    return base + '/proxy?url=' + encodeURIComponent(targetUrl)
+        + (referer ? ('&referer=' + encodeURIComponent(referer)) : '')
+        + '&apiKey=' + encodeURIComponent(apiKey);
+}
+
 function classifyId(rawId) {
     var value = String(rawId == null ? '' : rawId).trim();
     if (!value) return { kind: 'unknown', id: '' };
@@ -102,6 +115,24 @@ async function fetchAudioStreams(apiBase, anilistId, targetEp, audio) {
             return [];
         }
 
+        var subtitles = [];
+        if (Array.isArray(data.subtitles)) {
+            for (var s = 0; s < data.subtitles.length; s++) {
+                var sub = data.subtitles[s];
+                if (sub && sub.url) {
+                    var subUrl = sub.url;
+                    if (subUrl.indexOf('http') === 0 && (subUrl.indexOf('krussdomi') !== -1 || subUrl.indexOf('vyrnex') !== -1 || subUrl.indexOf('mkissa') !== -1)) {
+                        subUrl = getProxyUrl(subUrl, 'https://mkissa.to/');
+                    }
+                    subtitles.push({
+                        url: subUrl,
+                        language: sub.lang || sub.language || 'en',
+                        name: sub.label || sub.lang || 'English'
+                    });
+                }
+            }
+        }
+
         var results = [];
         for (var i = 0; i < data.sources.length; i++) {
             var src = data.sources[i];
@@ -139,7 +170,7 @@ async function fetchAudioStreams(apiBase, anilistId, targetEp, audio) {
                 quality: 'auto',
                 type: mediaType,
                 headers: headers,
-                subtitles: []
+                subtitles: subtitles
             });
         }
 

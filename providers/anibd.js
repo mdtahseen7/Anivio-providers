@@ -13,6 +13,19 @@ var BASE_URL = 'https://epeng.animeapps.top';
 var REFERER = 'https://anibd.app/';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
 
+function getProxyUrl(targetUrl, referer) {
+    if (!targetUrl) return '';
+    var base = (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
+        ? String(SCRAPER_SETTINGS.backend_url).replace(/\/+$/, '')
+        : 'https://api.luna-stream.me';
+    var apiKey = (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.api_key)
+        ? SCRAPER_SETTINGS.api_key
+        : 'LetMeIn';
+    return base + '/proxy?url=' + encodeURIComponent(targetUrl)
+        + (referer ? ('&referer=' + encodeURIComponent(referer)) : '')
+        + '&apiKey=' + encodeURIComponent(apiKey);
+}
+
 /**
  * Classifies the incoming ID into kind ('anilist' | 'mal' | 'tmdb' | 'unknown') and raw id.
  */
@@ -207,7 +220,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                                                 ? tr.file
                                                 : new URL(tr.file, playUrl).toString();
                                             subtitles.push({
-                                                url: subUrl,
+                                                url: getProxyUrl(subUrl, playUrl),
                                                 language: (tr.label || 'en').toLowerCase().slice(0, 2),
                                                 name: tr.label || 'English',
                                                 headers: {

@@ -14,7 +14,25 @@
 var ANIWAVE_BASE = 'https://animewave.to';
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-var PROXY_HOST = 'https://luna-api.mdtahseen2901.workers.dev';
+
+function getProxyBase() {
+    return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
+        ? String(SCRAPER_SETTINGS.backend_url).replace(/\/+$/, '')
+        : 'https://api.luna-stream.me';
+}
+
+function getApiKey() {
+    return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.api_key)
+        ? SCRAPER_SETTINGS.api_key
+        : 'LetMeIn';
+}
+
+function getProxyUrl(targetUrl, referer) {
+    if (!targetUrl) return '';
+    return getProxyBase() + '/proxy?url=' + encodeURIComponent(targetUrl)
+        + (referer ? ('&referer=' + encodeURIComponent(referer)) : '')
+        + '&apiKey=' + encodeURIComponent(getApiKey());
+}
 /* MegaPlay enc-token decryptor (pure ES5, QuickJS-safe: no atob/TextEncoder/WebCrypto) */
 /* S-boxes are generated at runtime (verified AES construction) to avoid table typos */
 var MP_SBOX = null, MP_INV_SBOX = null;
@@ -606,7 +624,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                             else if (cleanLabel.indexOf('arabic') !== -1 || cleanLabel.indexOf('ara') !== -1) langCode = 'ar';
 
                             // Subtitles are proxied through worker so ExoPlayer receives WebVTT with HTTP 200 without 403 Forbidden
-                            var subProxyUrl = PROXY_HOST + '/anime/megaplay/proxy?url=' + encodeURIComponent(tr.file);
+                            var subProxyUrl = getProxyUrl(tr.file, 'https://megaplay.buzz/');
                             subtitles.push({
                                 url: subProxyUrl,
                                 language: langCode,
@@ -621,7 +639,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
 
                     var labelType = sb.typeName === 'dub' ? 'Dub' : 'Sub';
                     // Stream manifest is proxied through worker to strip disguised 252-byte PNG headers and avoid loading freeze
-                    var proxiedStreamUrl = PROXY_HOST + '/anime/megaplay/proxy?url=' + encodeURIComponent(m3u8) + '&raw=1';
+                    var proxiedStreamUrl = getProxyBase() + '/anime/megaplay/proxy?url=' + encodeURIComponent(m3u8) + '&raw=1&apiKey=' + encodeURIComponent(getApiKey());
 
                     var epLabel = targetSeason > 1 ? 'S' + targetSeason + 'E' + targetEp : 'Ep ' + targetEp;
                     streams.push({

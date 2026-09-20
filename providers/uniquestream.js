@@ -18,7 +18,25 @@ var BASE = 'https://anime.uniquestream.net';
 var API = 'https://anime.uniquestream.net/api/v1';
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-var LUNA_PROXY = 'https://luna-api.mdtahseen2901.workers.dev/anime/uniquestream/proxy';
+
+function getProxyBase() {
+    return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
+        ? String(SCRAPER_SETTINGS.backend_url).replace(/\/+$/, '')
+        : 'https://api.luna-stream.me';
+}
+
+function getApiKey() {
+    return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.api_key)
+        ? SCRAPER_SETTINGS.api_key
+        : 'LetMeIn';
+}
+
+function getProxyUrl(targetUrl, referer) {
+    if (!targetUrl) return '';
+    return getProxyBase() + '/proxy?url=' + encodeURIComponent(targetUrl)
+        + (referer ? ('&referer=' + encodeURIComponent(referer)) : '')
+        + '&apiKey=' + encodeURIComponent(getApiKey());
+}
 var CACHE = {};
 
 function classifyId(rawId) {
@@ -240,13 +258,13 @@ async function resolveAudio(kind, contentId, locale, label, episodeNumber) {
     if (String(hls.locale || '').toLowerCase() !== locale.toLowerCase()) return null;
     var mid = media && media.media_id ? String(media.media_id) : '';
     if (!mid) return null;
-    var proxied = LUNA_PROXY + '?url=' + encodeURIComponent(hls.playlist) + '&mid=' + encodeURIComponent(mid);
+    var proxied = getProxyBase() + '/anime/uniquestream/proxy?url=' + encodeURIComponent(hls.playlist) + '&mid=' + encodeURIComponent(mid) + '&apiKey=' + encodeURIComponent(getApiKey());
     var headers = { 'User-Agent': UA, 'Referer': BASE + '/' };
     var subtitles = [], tracks = Array.isArray(hls.subtitles) ? hls.subtitles : [], i;
     for (i = 0; i < tracks.length; i++) {
         if (!tracks[i] || !tracks[i].url) continue;
         subtitles.push({
-            url: tracks[i].url,
+            url: getProxyUrl(tracks[i].url, BASE + '/'),
             language: tracks[i].language || 'en',
             name: tracks[i].language || 'English',
             headers: headers
