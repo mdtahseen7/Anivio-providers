@@ -15,7 +15,7 @@ var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, l
 function getProxyBase() {
     return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
         ? String(SCRAPER_SETTINGS.backend_url).replace(/\/+$/, '')
-        : 'https://api.luna-stream.me';
+        : 'https://luna-api.mdtahseen2901.workers.dev';
 }
 
 function getApiKey() {

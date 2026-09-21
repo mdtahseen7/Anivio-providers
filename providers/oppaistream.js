@@ -18,7 +18,7 @@ function getProxyUrl(targetUrl, referer) {
     if (!targetUrl) return '';
     var base = (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
         ? String(SCRAPER_SETTINGS.backend_url).replace(/\/+$/, '')
-        : 'https://api.luna-stream.me';
+        : 'https://luna-api.mdtahseen2901.workers.dev';
     var apiKey = (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.api_key)
         ? SCRAPER_SETTINGS.api_key
         : 'LetMeIn';
@@ -357,7 +357,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         // Fallback: If Cloudflare blocks direct watch page, query Luna Backend
         if (streams.length === 0) {
             var backendUrl = (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
-                || 'https://api.luna-stream.me';
+                || 'https://luna-api.mdtahseen2901.workers.dev';
             var apiKey = (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.api_key)
                 ? SCRAPER_SETTINGS.api_key
                 : 'LetMeIn';
