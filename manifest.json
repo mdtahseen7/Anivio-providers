@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.8.4",
+  "version": "1.8.5",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -710,6 +710,34 @@
         "en"
       ],
       "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "babastream",
+      "name": "BabaStream",
+      "description": "BabaStream anime provider supporting direct MP4 / HLS streams, dual audio (Sub & Dub), and high-speed multi-quality playback via BabaStream.top.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://babastream.top/favicon-32.png",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/babastream.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "mp4",
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "mp4",
         "hls"
       ],
       "supportsExternalPlayer": true

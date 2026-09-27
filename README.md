@@ -38,6 +38,7 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 | **AnimeHeaven** | Anime | MP4 | Direct standalone 1080p MP4 anime stream extraction from AnimeHeaven.me CDNs | ✅ Active |
 | **AniWatch** | Anime | HLS (m3u8) | Standalone HLS master streams via ZokoAnime / AniWatch.lu with SUB/DUB & proxied subtitles | ✅ Active |
 | **AnimeKai** | Anime | HLS (m3u8) | Multi-node high-speed HLS streams (Zuna, Yuki, Sora, Loli) via AnimeKai.ro / MegaVid with dual audio | ✅ Active |
+| **BabaStream** | Anime | MP4 / HLS | Direct MP4 & HLS stream extraction via BabaStream.top with PoW resolution & dual audio | ✅ Active |
 | **WatchHentai** | Hentai / Adult | MP4 / HLS | Direct 1080p video streams with XOR video URL decryption | ✅ Active |
 
 ---
@@ -57,6 +58,7 @@ Anivio-anime-provider/
 │   ├── aniwatch.js          # Standalone AniWatch provider
 │   ├── aniwaves.js          # AniWaves anime provider
 │   ├── anizone.js           # AniZone anime provider
+│   ├── babastream.js        # Standalone BabaStream provider
 │   ├── hentaigasm.js        # Hentaigasm provider
 │   ├── kickassanime.js      # KickAssAnime provider
 │   ├── megaplay.js          # MegaPlay provider
