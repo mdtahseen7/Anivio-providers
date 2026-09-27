@@ -36,6 +36,8 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 | **Hentaigasm** | Hentai / Adult | MP4 | Direct high-speed JWPlayer video sources with range-request support | ✅ Active |
 | **Senshi** | Anime | HLS (m3u8) | Decrypted 1080p HLS streams via Senshi.to with dual-audio and subtitle tracks | ✅ Active |
 | **AnimeHeaven** | Anime | MP4 | Direct standalone 1080p MP4 anime stream extraction from AnimeHeaven.me CDNs | ✅ Active |
+| **AniWatch** | Anime | HLS (m3u8) | Standalone HLS master streams via ZokoAnime / AniWatch.lu with SUB/DUB & proxied subtitles | ✅ Active |
+| **AnimeKai** | Anime | HLS (m3u8) | Multi-node high-speed HLS streams (Zuna, Yuki, Sora, Loli) via AnimeKai.ro / MegaVid with dual audio | ✅ Active |
 | **WatchHentai** | Hentai / Adult | MP4 / HLS | Direct 1080p video streams with XOR video URL decryption | ✅ Active |
 
 ---
@@ -49,8 +51,10 @@ Anivio-anime-provider/
 ├── providers/
 │   ├── anibd.js             # AniBD anime provider
 │   ├── animeheaven.js       # Standalone AnimeHeaven provider
+│   ├── animekai.js          # Standalone AnimeKai provider
 │   ├── anikoto.js           # Anikoto anime provider
 │   ├── anineko.js           # AniNeko anime provider
+│   ├── aniwatch.js          # Standalone AniWatch provider
 │   ├── aniwaves.js          # AniWaves anime provider
 │   ├── anizone.js           # AniZone anime provider
 │   ├── hentaigasm.js        # Hentaigasm provider
