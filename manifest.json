@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.8.6",
+  "version": "1.8.7",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -666,7 +666,7 @@
       "id": "aniwatch",
       "name": "AniWatch",
       "description": "AniWatch anime provider with direct HLS master streams via ZokoAnime, multi-server resolution, Sub & Dub support, and proxied subtitles.",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "mdtahseen7",
       "logo": "https://aniwatch.lu/favicon.ico",
       "supportedTypes": [
@@ -692,7 +692,7 @@
       "id": "animekai",
       "name": "AnimeKai",
       "description": "AnimeKai anime provider with multi-node high-speed HLS streams (Zuna, Yuki, Sora, Loli), Sub & Dub dual audio, and proxied subtitles.",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "mdtahseen7",
       "logo": "https://animekai.ro/favicon.ico",
       "supportedTypes": [
