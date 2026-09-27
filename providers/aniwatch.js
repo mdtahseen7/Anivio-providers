@@ -153,7 +153,7 @@ async function resolveMetadata(rawId) {
 /**
  * Extracts stream from ZokoAnime player URL.
  */
-async function extractZokoStream(zokoUrl, serverLabel) {
+async function extractZokoStream(zokoUrl, serverLabel, epNum) {
     try {
         var res = await fetch(zokoUrl, {
             headers: {
@@ -175,14 +175,17 @@ async function extractZokoStream(zokoUrl, serverLabel) {
                 if (s && s.src) {
                     subtitles.push({
                         url: getProxyUrl(s.src, 'https://zokoanime.video/'),
-                        language: s.label || s.lang || 'English',
-                        type: 'vtt'
+                        language: String(s.label || s.lang || 'en').toLowerCase().slice(0, 2),
+                        name: s.label || s.lang || 'English',
+                        headers: { 'Referer': 'https://zokoanime.video/' }
                     });
                 }
             }
         }
 
         return {
+            name: 'AniWatch',
+            title: serverLabel + (epNum ? ' · Ep ' + epNum : ''),
             server: serverLabel,
             type: 'hls',
             quality: 'auto',
@@ -287,7 +290,7 @@ async function scrapeAniwatchPage(animeUrl, targetEp) {
             var sHash = itemMatch[3];
             var decodedUrl = safeAtob(sHash);
             if (decodedUrl && decodedUrl.indexOf('zokoanime.video') !== -1) {
-                var stream = await extractZokoStream(decodedUrl, 'AniWatch - ' + sName + ' (' + sType.toUpperCase() + ')');
+                var stream = await extractZokoStream(decodedUrl, 'AniWatch - ' + sName + ' (' + sType.toUpperCase() + ')', targetEp);
                 if (stream) streams.push(stream);
             }
         }
@@ -317,14 +320,16 @@ async function getStreams(id, type, season, episode) {
                 // Sub
                 var subStream = await extractZokoStream(
                     'https://zokoanime.video/stream/mal/' + meta.malId + '/' + targetEp + '/sub',
-                    'AniWatch - ZokoAnime (SUB)'
+                    'AniWatch - ZokoAnime (SUB)',
+                    targetEp
                 );
                 if (subStream) streams.push(subStream);
 
                 // Dub
                 var dubStream = await extractZokoStream(
                     'https://zokoanime.video/stream/mal/' + meta.malId + '/' + targetEp + '/dub',
-                    'AniWatch - ZokoAnime (DUB)'
+                    'AniWatch - ZokoAnime (DUB)',
+                    targetEp
                 );
                 if (dubStream) streams.push(dubStream);
             } catch (err) {
@@ -374,3 +379,38 @@ async function getStreams(id, type, season, episode) {
         return [];
     }
 }
+
+/**
+ * Provider settings for Anivio UI.
+ */
+async function onSettings() {
+    return [
+        {
+            key: 'label',
+            type: 'text',
+            title: 'Provider Name',
+            description: 'Display name for AniWatch streams.',
+            default: 'AniWatch'
+        },
+        {
+            key: 'backend_url',
+            type: 'text',
+            title: 'Luna Backend URL',
+            description: 'Backend base URL used to proxy subtitle files.',
+            default: 'https://luna-api.mdtahseen2901.workers.dev'
+        },
+        {
+            key: 'api_key',
+            type: 'text',
+            title: 'Luna API Key',
+            description: 'API key required by Luna Backend.',
+            default: 'LetMeIn'
+        }
+    ];
+}
+
+// Export according to Anivio Plugin Contract
+module.exports.getStreams = getStreams;
+module.exports.onSettings = onSettings;
+globalThis.getStreams = getStreams;
+globalThis.onSettings = onSettings;
