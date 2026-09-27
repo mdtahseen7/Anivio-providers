@@ -13,17 +13,23 @@ var BASE_URL = 'https://epeng.animeapps.top';
 var REFERER = 'https://anibd.app/';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
 
-function getProxyUrl(targetUrl, referer) {
-    if (!targetUrl) return '';
-    var base = (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
+function getProxyBase() {
+    return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
         ? String(SCRAPER_SETTINGS.backend_url).replace(/\/+$/, '')
         : 'https://luna-api.mdtahseen2901.workers.dev';
-    var apiKey = (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.api_key)
+}
+
+function getApiKey() {
+    return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.api_key)
         ? SCRAPER_SETTINGS.api_key
         : 'LetMeIn';
-    return base + '/proxy?url=' + encodeURIComponent(targetUrl)
+}
+
+function getProxyUrl(targetUrl, referer) {
+    if (!targetUrl) return '';
+    return getProxyBase() + '/proxy?url=' + encodeURIComponent(targetUrl)
         + (referer ? ('&referer=' + encodeURIComponent(referer)) : '')
-        + '&apiKey=' + encodeURIComponent(apiKey);
+        + '&apiKey=' + encodeURIComponent(getApiKey());
 }
 
 /**
@@ -63,31 +69,51 @@ async function resolveAnilistId(rawId) {
         return '21';
     }
 
-    var query = null;
     if (classified.kind === 'mal') {
-        query = 'mal_id=' + encodeURIComponent(classified.id);
-    } else if (classified.kind === 'tmdb') {
-        query = 'themoviedb_id=' + encodeURIComponent(classified.id);
-    }
-
-    if (!query) return null;
-
-    try {
-        var res = await fetch(ANIZIP_ENDPOINT + '?' + query, {
-            headers: { 'Accept': 'application/json', 'User-Agent': 'Anivio' }
-        });
-        if (!res.ok) return null;
-
-        var data = await res.json();
-        if (!data) return null;
-
-        var mappings = data.mappings || {};
-        var anilistId = mappings.anilist_id;
-        return anilistId ? String(anilistId) : null;
-    } catch (e) {
-        console.warn('[anibd] ID mapping failed: ' + (e && e.message));
+        try {
+            var res = await fetch(ANIZIP_ENDPOINT + '?mal_id=' + encodeURIComponent(classified.id), {
+                headers: { 'Accept': 'application/json', 'User-Agent': UA }
+            });
+            if (res.ok) {
+                var data = await res.json();
+                if (data && data.mappings && data.mappings.anilist_id) {
+                    return String(data.mappings.anilist_id);
+                }
+            }
+        } catch (e) {}
         return null;
     }
+
+    if (classified.kind === 'tmdb') {
+        try {
+            var tmdbRes = await fetch(ANIZIP_ENDPOINT + '?themoviedb_id=' + encodeURIComponent(classified.id), {
+                headers: { 'Accept': 'application/json', 'User-Agent': UA }
+            });
+            if (tmdbRes.ok) {
+                var tmdbData = await tmdbRes.json();
+                if (tmdbData && tmdbData.mappings && tmdbData.mappings.anilist_id) {
+                    return String(tmdbData.mappings.anilist_id);
+                }
+            }
+        } catch (e) {}
+
+        // If not found by TMDB id, check if the numeric string is directly an AniList id
+        try {
+            var aniRes = await fetch(ANIZIP_ENDPOINT + '?anilist_id=' + encodeURIComponent(classified.id), {
+                headers: { 'Accept': 'application/json', 'User-Agent': UA }
+            });
+            if (aniRes.ok) {
+                var aniData = await aniRes.json();
+                if (aniData && aniData.mappings && aniData.mappings.anilist_id) {
+                    return String(aniData.mappings.anilist_id);
+                }
+            }
+        } catch (e) {}
+
+        return classified.id;
+    }
+
+    return null;
 }
 
 /**
@@ -235,10 +261,11 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                         }
 
                         var sLabel = playerObj.server ? playerObj.server : item.serverName;
+                        var proxiedStreamUrl = getProxyBase() + '/anime/anibd/proxy?url=' + encodeURIComponent(absoluteVideoUrl) + '&referer=' + encodeURIComponent(playUrl) + '&raw=1&apiKey=' + encodeURIComponent(getApiKey());
                         streams.push({
                             name: 'AniBD',
                             title: 'AniBD · ' + sLabel + ' · Ep ' + targetEp,
-                            url: absoluteVideoUrl,
+                            url: proxiedStreamUrl,
                             quality: 'auto',
                             type: 'hls',
                             headers: {
