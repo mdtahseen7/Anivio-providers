@@ -141,7 +141,7 @@ async function extractFromMegavid(malId, ep, subType) {
                 var t = data.tracks[i];
                 if (t && t.file) {
                     subtitles.push({
-                        url: getProxyUrl(t.file, 'https://megavid.buzz/'),
+                        url: t.file,
                         language: String(t.label || 'en').toLowerCase().slice(0, 2),
                         name: t.label || 'English',
                         headers: { 'Referer': 'https://megavid.buzz/' }
@@ -283,7 +283,7 @@ async function scrapeKaiWatchPage(slug, targetEp) {
                                         var tr = srcData.tracks[t];
                                         if (tr && tr.file) {
                                             subtitles.push({
-                                                url: getProxyUrl(tr.file, 'https://megavid.buzz/'),
+                                                url: tr.file,
                                                 language: String(tr.label || 'en').toLowerCase().slice(0, 2),
                                                 name: tr.label || 'English',
                                                 headers: { 'Referer': 'https://megavid.buzz/' }
