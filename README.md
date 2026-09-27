@@ -34,6 +34,8 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 | **AniNeko** | Anime | HLS (m3u8) | StreamHG & Earnvids server extraction with high-speed HLS playback | ✅ Active |
 | **OppaiStream** | Hentai / Adult | MP4 / WebM | Direct 4K, 1080p, 720p stream extraction bypassing Cloudflare watch challenges | ✅ Active |
 | **Hentaigasm** | Hentai / Adult | MP4 | Direct high-speed JWPlayer video sources with range-request support | ✅ Active |
+| **Senshi** | Anime | HLS (m3u8) | Decrypted 1080p HLS streams via Senshi.to with dual-audio and subtitle tracks | ✅ Active |
+| **AnimeHeaven** | Anime | MP4 | Direct standalone 1080p MP4 anime stream extraction from AnimeHeaven.me CDNs | ✅ Active |
 | **WatchHentai** | Hentai / Adult | MP4 / HLS | Direct 1080p video streams with XOR video URL decryption | ✅ Active |
 
 ---
@@ -42,10 +44,11 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 
 ```
 Anivio-anime-provider/
-├── manifest.json            # Repository manifest listing all 12 providers with logos & settings
+├── manifest.json            # Repository manifest listing all available providers
 ├── icons/                   # Local provider icon assets (PNG / ICO)
 ├── providers/
 │   ├── anibd.js             # AniBD anime provider
+│   ├── animeheaven.js       # Standalone AnimeHeaven provider
 │   ├── anikoto.js           # Anikoto anime provider
 │   ├── anineko.js           # AniNeko anime provider
 │   ├── aniwaves.js          # AniWaves anime provider
@@ -55,6 +58,7 @@ Anivio-anime-provider/
 │   ├── megaplay.js          # MegaPlay provider
 │   ├── mkissa.js            # MKissa provider
 │   ├── oppaistream.js       # OppaiStream provider
+│   ├── senshi.js            # Senshi anime provider
 │   ├── torrentio.js         # Torrentio (P2P / Stremio) provider
 │   └── watchhentai.js       # WatchHentai provider
 └── README.md
