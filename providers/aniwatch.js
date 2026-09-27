@@ -174,7 +174,7 @@ async function extractZokoStream(zokoUrl, serverLabel, epNum) {
                 var s = data.subtitles[i];
                 if (s && s.src) {
                     subtitles.push({
-                        url: getProxyUrl(s.src, 'https://zokoanime.video/'),
+                        url: s.src,
                         language: String(s.label || s.lang || 'en').toLowerCase().slice(0, 2),
                         name: s.label || s.lang || 'English',
                         headers: { 'Referer': 'https://zokoanime.video/' }
