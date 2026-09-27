@@ -142,8 +142,9 @@ async function extractFromMegavid(malId, ep, subType) {
                 if (t && t.file) {
                     subtitles.push({
                         url: getProxyUrl(t.file, 'https://megavid.buzz/'),
-                        language: t.label || 'English',
-                        type: 'vtt'
+                        language: String(t.label || 'en').toLowerCase().slice(0, 2),
+                        name: t.label || 'English',
+                        headers: { 'Referer': 'https://megavid.buzz/' }
                     });
                 }
             }
@@ -151,6 +152,8 @@ async function extractFromMegavid(malId, ep, subType) {
 
         var providerName = data.provider ? (data.provider.toUpperCase() + ' - ') : '';
         streams.push({
+            name: 'AnimeKai',
+            title: 'AnimeKai - ' + providerName + subType.toUpperCase() + ' · Ep ' + ep,
             server: 'AnimeKai - ' + providerName + subType.toUpperCase(),
             type: 'hls',
             quality: 'auto',
@@ -180,6 +183,8 @@ async function extractFromMegavid(malId, ep, subType) {
                             var aData = await aRes.json();
                             if (aData && aData.status === 'ok' && aData.source) {
                                 streams.push({
+                                    name: 'AnimeKai',
+                                    title: 'AnimeKai - ' + altP.id.toUpperCase() + ' (' + subType.toUpperCase() + ') · Ep ' + ep,
                                     server: 'AnimeKai - ' + altP.id.toUpperCase() + ' (' + subType.toUpperCase() + ')',
                                     type: 'hls',
                                     quality: 'auto',
@@ -279,13 +284,16 @@ async function scrapeKaiWatchPage(slug, targetEp) {
                                         if (tr && tr.file) {
                                             subtitles.push({
                                                 url: getProxyUrl(tr.file, 'https://megavid.buzz/'),
-                                                language: tr.label || 'English',
-                                                type: 'vtt'
+                                                language: String(tr.label || 'en').toLowerCase().slice(0, 2),
+                                                name: tr.label || 'English',
+                                                headers: { 'Referer': 'https://megavid.buzz/' }
                                             });
                                         }
                                     }
                                 }
                                 streams.push({
+                                    name: 'AnimeKai',
+                                    title: 'AnimeKai - ' + linkIds[i].name + ' · Ep ' + targetEp,
                                     server: 'AnimeKai - ' + linkIds[i].name,
                                     type: 'hls',
                                     quality: 'auto',
@@ -383,3 +391,38 @@ async function getStreams(id, type, season, episode) {
         return [];
     }
 }
+
+/**
+ * Provider settings for Anivio UI.
+ */
+async function onSettings() {
+    return [
+        {
+            key: 'label',
+            type: 'text',
+            title: 'Provider Name',
+            description: 'Display name for AnimeKai streams.',
+            default: 'AnimeKai'
+        },
+        {
+            key: 'backend_url',
+            type: 'text',
+            title: 'Luna Backend URL',
+            description: 'Backend base URL used to proxy subtitle files.',
+            default: 'https://luna-api.mdtahseen2901.workers.dev'
+        },
+        {
+            key: 'api_key',
+            type: 'text',
+            title: 'Luna API Key',
+            description: 'API key required by Luna Backend.',
+            default: 'LetMeIn'
+        }
+    ];
+}
+
+// Export according to Anivio Plugin Contract
+module.exports.getStreams = getStreams;
+module.exports.onSettings = onSettings;
+globalThis.getStreams = getStreams;
+globalThis.onSettings = onSettings;
