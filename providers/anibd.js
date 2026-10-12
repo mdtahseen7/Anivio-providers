@@ -1,17 +1,18 @@
 /**
- * AniBD Stream Provider Plugin for Anivio
+ * AniBD / MMani Stream Provider Plugin for Anivio
  *
  * Conforms to Anivio Plugin Guide specifications:
  * - Engine: QuickJS (supports async/await natively, no transpilation)
  * - Single self-contained file (no import/export)
  * - Supported IDs: anilist:<id>, mal:<id>, numeric TMDB id, and "603" (Anivio Test button)
- * - Direct HLS extraction with required playback headers
+ * - Direct HLS extraction with required playback headers and Luna proxying
  */
 
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var BASE_URL = 'https://epeng.animeapps.top';
+var SEARCH_URL = 'https://eng.animeapps.top/api/search3.php';
 var REFERER = 'https://mmani.com/'; // site moved from anibd.app to mmani.com (2026-10)
-var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
+var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 function getProxyBase() {
     return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
@@ -53,67 +54,89 @@ function classifyId(rawId) {
 }
 
 /**
- * Resolves an incoming ID into an AniList anime ID (which AniBD indexes by).
+ * Resolves an incoming ID into an AniList anime ID and title.
  */
-async function resolveAnilistId(rawId) {
+async function resolveAnimeMeta(rawId) {
     var classified = classifyId(rawId);
 
-    // If already an AniList ID, return immediately
-    if (classified.kind === 'anilist') {
-        return classified.id;
-    }
-
     // Anivio's built-in "Test" button always passes tmdbId = "603" with season=1, episode=1
-    // Map to a reliable anime (One Piece / 21) so the test button succeeds
+    // Map to a reliable active anime on MMani (Sousou no Frieren S2 / 182255) so the test button succeeds
     if (classified.id === '603') {
-        return '21';
+        return { anilistId: '182255', title: 'Sousou no Frieren 2nd Season' };
     }
 
+    if (classified.kind === 'anilist') {
+        return { anilistId: classified.id, title: '' };
+    }
+
+    var query = '';
     if (classified.kind === 'mal') {
+        query = '?mal_id=' + encodeURIComponent(classified.id);
+    } else if (classified.kind === 'tmdb') {
+        query = '?themoviedb_id=' + encodeURIComponent(classified.id);
+    }
+
+    if (query) {
         try {
-            var res = await fetch(ANIZIP_ENDPOINT + '?mal_id=' + encodeURIComponent(classified.id), {
+            var res = await fetch(ANIZIP_ENDPOINT + query, {
                 headers: { 'Accept': 'application/json', 'User-Agent': UA }
             });
             if (res.ok) {
                 var data = await res.json();
-                if (data && data.mappings && data.mappings.anilist_id) {
-                    return String(data.mappings.anilist_id);
+                var aniId = data && data.mappings && data.mappings.anilist_id ? String(data.mappings.anilist_id) : null;
+                var titles = data && data.titles ? data.titles : {};
+                var title = titles.en || titles.ro || titles.ja || '';
+                if (aniId) {
+                    return { anilistId: aniId, title: title };
                 }
             }
         } catch (e) {}
-        return null;
     }
 
-    if (classified.kind === 'tmdb') {
-        try {
-            var tmdbRes = await fetch(ANIZIP_ENDPOINT + '?themoviedb_id=' + encodeURIComponent(classified.id), {
-                headers: { 'Accept': 'application/json', 'User-Agent': UA }
-            });
-            if (tmdbRes.ok) {
-                var tmdbData = await tmdbRes.json();
-                if (tmdbData && tmdbData.mappings && tmdbData.mappings.anilist_id) {
-                    return String(tmdbData.mappings.anilist_id);
-                }
-            }
-        } catch (e) {}
+    return { anilistId: classified.id, title: '' };
+}
 
-        // If not found by TMDB id, check if the numeric string is directly an AniList id
-        try {
-            var aniRes = await fetch(ANIZIP_ENDPOINT + '?anilist_id=' + encodeURIComponent(classified.id), {
-                headers: { 'Accept': 'application/json', 'User-Agent': UA }
-            });
-            if (aniRes.ok) {
-                var aniData = await aniRes.json();
-                if (aniData && aniData.mappings && aniData.mappings.anilist_id) {
-                    return String(aniData.mappings.anilist_id);
-                }
-            }
-        } catch (e) {}
-
-        return classified.id;
-    }
-
+/**
+ * Searches MMani by title as fallback.
+ */
+async function searchMManiByTitle(title) {
+    if (!title) return null;
+    try {
+        var res = await fetch(SEARCH_URL + '?keyword=' + encodeURIComponent(title), {
+            headers: { 'User-Agent': UA, 'Referer': REFERER }
+        });
+        if (!res.ok) return null;
+        var json = await res.json();
+        if (json && Array.isArray(json.data) && json.data.length > 0) {
+            var item = json.data[0];
+            return item.anilist ? String(item.anilist) : (item.postid ? String(item.postid) : null);
+        }
+    } catch (e) {}
     return null;
+}
+
+/**
+ * Fetches episode servers for a given anime ID.
+ */
+async function fetchEpisodeServers(anilistId) {
+    var serversRes = await fetch(BASE_URL + '/api2.php?epid=' + encodeURIComponent(anilistId), {
+        headers: {
+            'User-Agent': UA,
+            'Referer': REFERER
+        }
+    });
+
+    if (!serversRes.ok) return [];
+
+    var serversText = await serversRes.text();
+    if (!serversText || serversText.indexOf('error') !== -1) return [];
+
+    try {
+        var parsed = JSON.parse(serversText);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
+    }
 }
 
 /**
@@ -129,7 +152,8 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     try {
         console.log('[anibd] getStreams called: id=' + tmdbId + ' type=' + mediaType + ' ep=' + episode);
 
-        var anilistId = await resolveAnilistId(tmdbId);
+        var meta = await resolveAnimeMeta(tmdbId);
+        var anilistId = meta.anilistId;
         if (!anilistId) {
             console.log('[anibd] No AniList ID resolved for ' + tmdbId);
             return [];
@@ -139,32 +163,20 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         if (isNaN(targetEp) || targetEp < 1) targetEp = 1;
 
         // 1. Fetch available servers and episode list for this anime
-        var serversRes = await fetch(BASE_URL + '/api2.php?epid=' + encodeURIComponent(anilistId), {
-            headers: {
-                'User-Agent': UA,
-                'Referer': REFERER
+        var serversData = await fetchEpisodeServers(anilistId);
+
+        // Fallback search by title if empty
+        if (serversData.length === 0 && meta.title) {
+            var searchedId = await searchMManiByTitle(meta.title);
+            if (searchedId && searchedId !== anilistId) {
+                serversData = await fetchEpisodeServers(searchedId);
             }
-        });
-
-        if (!serversRes.ok) {
-            console.log('[anibd] api2.php failed with HTTP ' + serversRes.status);
-            return [];
         }
 
-        var serversText = await serversRes.text();
-        if (!serversText || serversText.indexOf('error') !== -1) {
-            console.log('[anibd] api2.php returned empty or error response');
+        if (serversData.length === 0) {
+            console.log('[anibd] No servers found for ' + anilistId);
             return [];
         }
-
-        var serversData = null;
-        try {
-            serversData = JSON.parse(serversText);
-        } catch (e) {
-            return [];
-        }
-
-        if (!Array.isArray(serversData)) return [];
 
         // 2. Locate the requested episode across all servers
         var playerLinks = [];
@@ -173,12 +185,16 @@ async function getStreams(tmdbId, mediaType, season, episode) {
             var serverData = server.server_data || [];
             for (var j = 0; j < serverData.length; j++) {
                 var ep = serverData[j];
-                if (parseInt(ep.slug, 10) === targetEp && ep.link) {
-                    playerLinks.push({
-                        link: ep.link,
-                        serverName: server.server_name || ('Server ' + (i + 1))
-                    });
-                    break;
+                var slugNum = parseInt(ep.slug, 10);
+                var nameNum = parseInt(ep.name, 10);
+                if (slugNum === targetEp || nameNum === targetEp) {
+                    if (ep.link) {
+                        playerLinks.push({
+                            link: ep.link,
+                            serverName: server.server_name || ('Server ' + (i + 1))
+                        });
+                        break;
+                    }
                 }
             }
         }
@@ -211,18 +227,20 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                     if (!playerObj.link) continue;
 
                     var playUrl = playerObj.link.replace(/\\\//g, '/');
+                    var isPlayAnien = playUrl.indexOf('play.anien.top') !== -1;
+                    var reqReferer = isPlayAnien ? REFERER : 'https://anibd.app/';
 
                     // 4. Extract direct videoUrl and subtitles from player HTML
                     var playPageRes = await fetch(playUrl, {
                         headers: {
                             'User-Agent': UA,
-                            'Referer': REFERER
+                            'Referer': reqReferer
                         }
                     });
                     if (!playPageRes.ok) continue;
 
                     var playHtml = await playPageRes.text();
-                    var match = playHtml.match(/videoUrl:\s*["']([^"']+)["']/);
+                    var match = playHtml.match(/["\x27]?videoUrl["\x27]?\s*:\s*["\x27]([^"\x27]+)["\x27]/);
                     if (match && match[1]) {
                         var videoPath = match[1];
                         var absoluteVideoUrl = videoPath.indexOf('http') === 0
@@ -234,7 +252,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
 
                         // Parse subtitle tracks if present
                         var subtitles = [];
-                        var tracksMatch = playHtml.match(/tracks:\s*(\[[\s\S]*?\])/);
+                        var tracksMatch = playHtml.match(/["\x27]?tracks["\x27]?\s*:\s*(\[[\s\S]*?\])/);
                         if (tracksMatch && tracksMatch[1]) {
                             try {
                                 var rawTracks = JSON.parse(tracksMatch[1]);
@@ -246,12 +264,12 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                                                 ? tr.file
                                                 : new URL(tr.file, playUrl).toString();
                                             subtitles.push({
-                                                url: getProxyUrl(subUrl, playUrl),
+                                                url: getProxyUrl(subUrl, REFERER),
                                                 language: (tr.label || 'en').toLowerCase().slice(0, 2),
                                                 name: tr.label || 'English',
                                                 headers: {
                                                     'User-Agent': UA,
-                                                    'Referer': playUrl
+                                                    'Referer': REFERER
                                                 }
                                             });
                                         }
@@ -261,16 +279,24 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                         }
 
                         var sLabel = playerObj.server ? playerObj.server : item.serverName;
-                        var proxiedStreamUrl = getProxyBase() + '/anime/anibd/proxy?url=' + encodeURIComponent(absoluteVideoUrl) + '&referer=' + encodeURIComponent(playUrl) + '&raw=1&apiKey=' + encodeURIComponent(getApiKey());
+                        var quality = 'auto';
+                        if (sLabel.indexOf('1080') !== -1 || sLabel.indexOf('HD') !== -1) {
+                            quality = '1080p';
+                        } else if (sLabel.indexOf('720') !== -1) {
+                            quality = '720p';
+                        }
+
+                        var proxiedStreamUrl = getProxyBase() + '/anime/anibd/proxy?url=' + encodeURIComponent(absoluteVideoUrl) + '&referer=' + encodeURIComponent(REFERER) + '&raw=1&apiKey=' + encodeURIComponent(getApiKey());
+
                         streams.push({
-                            name: 'AniBD',
+                            name: 'AniBD (' + sLabel + ')',
                             title: 'AniBD · ' + sLabel + ' · Ep ' + targetEp,
                             url: proxiedStreamUrl,
-                            quality: 'auto',
+                            quality: quality,
                             type: 'hls',
                             headers: {
                                 'User-Agent': UA,
-                                'Referer': playUrl
+                                'Referer': REFERER
                             },
                             subtitles: subtitles
                         });

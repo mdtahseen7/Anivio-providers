@@ -27,6 +27,7 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 | **KickAssAnime** | Anime | HLS (m3u8) | Direct 1080p master HLS streams via CatStream Astro player with embedded subtitles | ✅ Active |
 | **MKissa** | Anime | HLS / MP4 | Fast SUB & DUB streams via Anivexa API with configurable mirror URL | ✅ Active |
 | **AniBD** | Anime | HLS (m3u8) | Multi-server stream resolution and fallback support for anime series & movies | ✅ Active |
+| **MMani** | Anime | HLS (m3u8) | Anime BD streams via MMani.com (formerly AniBD) with 1080p/720p HLS & WebVTT subtitles | ✅ Active |
 | **MegaPlay** | Anime | HLS (m3u8) | High-speed SUB and DUB streams with multi-audio and subtitle tracks | ✅ Active |
 | **Anikoto** | Anime | HLS (m3u8) | Multi-server extraction (Vidstream-2, HD-1), SUB & DUB, multi-language subtitles | ✅ Active |
 | **AniWaves** | Anime | HLS / MP4 | Vidplay, DatSaV, MyCloud server resolution with subtitle tracks | ✅ Active |
@@ -63,6 +64,7 @@ Anivio-anime-provider/
 │   ├── kickassanime.js      # KickAssAnime provider
 │   ├── megaplay.js          # MegaPlay provider
 │   ├── mkissa.js            # MKissa provider
+│   ├── mmani.js             # Standalone MMani (Anime BD) provider
 │   ├── oppaistream.js       # OppaiStream provider
 │   ├── senshi.js            # Senshi anime provider
 │   ├── torrentio.js         # Torrentio (P2P / Stremio) provider
