@@ -849,6 +849,32 @@
       ],
       "supportsExternalPlayer": true,
       "logo": "https://cdn.jsdelivr.net/gh/756751uosmaqy/wpp@main/mmani.jpg"
+    },
+    {
+      "id": "anilab",
+      "name": "AniLab",
+      "description": "AniLab provider via AniLab catalog + KYOTO/anidb backend with Sub/Dub servers and multi-quality HLS streams.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/anilab.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true,
+      "logo": "https://www.anilab2.app/assets/logo.svg"
     }
   ]
 }
