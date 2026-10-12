@@ -10,7 +10,7 @@
 
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var BASE_URL = 'https://epeng.animeapps.top';
-var REFERER = 'https://anibd.app/';
+var REFERER = 'https://mmani.com/'; // site moved from anibd.app to mmani.com (2026-10)
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
 
 function getProxyBase() {
