@@ -875,6 +875,60 @@
       ],
       "supportsExternalPlayer": true,
       "logo": "https://www.anilab2.app/assets/logo.svg"
+    },
+    {
+      "id": "animelok",
+      "name": "AnimeLok (Hindi Dub)",
+      "description": "AnimeLok provider with multi-audio HLS streams (Hindi Dub, Tamil, Telugu, English, Japanese) up to 1080p.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/animelok.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "hi",
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true,
+      "logo": "https://animelok.cc/icons/icon-192.png"
+    },
+    {
+      "id": "anihub",
+      "name": "AniHub (Hindi Dub)",
+      "description": "AniHub provider with multi-audio HLS streams (Hindi Dub, Tamil, Telugu, English, Japanese) up to 1080p.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/anihub.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "hi",
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true,
+      "logo": "https://anihub.co.in/favicon.ico"
     }
   ]
 }
