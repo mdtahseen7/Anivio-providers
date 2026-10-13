@@ -929,6 +929,36 @@
       ],
       "supportsExternalPlayer": true,
       "logo": "https://anihub.co.in/favicon.ico"
+    },
+    {
+      "id": "kisskh",
+      "name": "KissKH",
+      "description": "KissKH provider with direct HD streams and multi-language subtitles via KissKH API.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/kisskh.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8",
+        "mp4"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en",
+        "ko",
+        "zh"
+      ],
+      "supportedFormats": [
+        "hls",
+        "mp4"
+      ],
+      "supportsExternalPlayer": true,
+      "logo": "https://kisskh.co/favicon.ico"
     }
   ]
 }

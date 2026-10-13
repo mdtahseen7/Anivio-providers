@@ -19,7 +19,7 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 
 ---
 
-## Available Providers (35 Active)
+## Available Providers (36 Active)
 
 | Provider | Content Type | Stream Format | Highlights & Features | Status |
 |---|---|---|---|:---:|
@@ -32,6 +32,7 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 | **Torrentio** | Anime / Movies | Torrent (P2P) | Saikou-style torrent engine, AniZip ID mapping, Nyaa/TokyoTosho trackers, infoHash, seeders (👤), sizes (💾), Real-Debrid support | ✅ Active |
 | **KickAssAnime** | Anime | HLS (m3u8) | Direct 1080p master HLS streams via CatStream Astro player with embedded subtitles | ✅ Active |
 | **HiAnime** | Anime | HLS (m3u8) | ZokoAnime 1080p HLS streams, Sub and Dub audio, WebVTT subtitles, and intro/outro skip metadata | ✅ Active |
+| **KissKH** | Anime / Drama | HLS / MP4 | Direct HD video sources and multi-language subtitles via KissKH API | ✅ Active |
 | **MeguAnime** | Anime | HLS (m3u8) | Native AniList IDs & unified proxy API (Miruro) for multi-source HLS streams | ✅ Active |
 | **AnimePahe** | Anime | HLS (m3u8) | Direct Kwik HLS stream extraction with Cloudflare challenge persistence | ✅ Active |
 | **MKissa** | Anime | HLS / MP4 | Fast SUB & DUB streams via Anivexa API with configurable mirror URL | ✅ Active |

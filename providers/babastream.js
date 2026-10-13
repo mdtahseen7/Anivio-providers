@@ -250,3 +250,7 @@ async function getStreams(id, type, season, episode) {
         return [];
     }
 }
+
+module.exports.getStreams = getStreams;
+globalThis.getStreams = getStreams;
+
