@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -880,7 +880,7 @@
       "id": "animelok",
       "name": "AnimeLok (Hindi Dub)",
       "description": "AnimeLok provider with multi-audio HLS streams (Hindi Dub, Tamil, Telugu, English, Japanese) up to 1080p.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "mdtahseen7",
       "supportedTypes": [
         "movie",
@@ -907,7 +907,7 @@
       "id": "anihub",
       "name": "AniHub (Hindi Dub)",
       "description": "AniHub provider with multi-audio HLS streams (Hindi Dub, Tamil, Telugu, English, Japanese) up to 1080p.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "mdtahseen7",
       "supportedTypes": [
         "movie",
