@@ -19,12 +19,16 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 
 ---
 
-## Available Providers (36 Active)
+## Available Providers (40 Active)
 
 | Provider | Content Type | Stream Format | Highlights & Features | Status |
 |---|---|---|---|:---:|
 | **AnimeLok (Hindi Dub)** | Anime | HLS (m3u8) | Native Multi-Audio HLS (Hindi, Tamil, Telugu, English, Japanese) up to 1080p via direct JSON API | ✅ Active |
 | **AniHub (Hindi Dub)** | Anime | HLS (m3u8) | Multi-Audio HLS (Hindi, Tamil, Telugu, English, Japanese) up to 1080p via Ravok extractor | ✅ Active |
+| **ReAnime** | Anime | HLS (m3u8) | Decrypted FlixCloud HD-1 and HD-2 HLS streams, Sub and Dub audio, and embedded subtitles | ✅ Active |
+| **Ani.pm** | Anime | HLS (m3u8) | High-speed Settlar bootstrap and session resolver supporting Sub & Dub playback | ✅ Active |
+| **AnimeNoSub** | Anime | HLS (m3u8) | Direct Vidmoly 1080p HLS extraction and multi-server video embeds (FileMoon, Byse, Vtube) | ✅ Active |
+| **AnimeDunya** | Anime | HLS (m3u8) | Direct HLS streams and multi-language subtitles via AnimeDunya API | ✅ Active |
 | **MMani** | Anime | HLS (m3u8) | Anime BD streams via MMani.com (formerly AniBD) with 1080p/720p HLS & WebVTT subtitles | ✅ Active |
 | **AniLab** | Anime | HLS (m3u8) | AniLab catalog + KYOTO/anidb backend, Sub/Dub servers, multi-quality HLS, season-aware matching | ✅ Active |
 | **AniBD** | Anime | HLS (m3u8) | Multi-server stream resolution and fallback support for anime series & movies | ✅ Active |
@@ -66,7 +70,7 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 
 ```
 Anivio-providers/
-├── manifest.json            # Repository manifest listing all 35 available providers
+├── manifest.json            # Repository manifest listing all 40 available providers
 ├── icons/                   # Local provider icon assets (PNG / ICO)
 ├── providers/
 │   ├── anibd.js             # AniBD anime provider
@@ -76,6 +80,9 @@ Anivio-providers/
 │   ├── anikoto.js           # Anikoto anime provider
 │   ├── anilab.js            # AniLab catalog + KYOTO/anidb provider
 │   ├── animelok.js          # AnimeLok (Hindi Dub) provider
+│   ├── animedunya.js        # AnimeDunya provider
+│   ├── animenosub.js        # AnimeNoSub provider
+│   ├── anipm.js             # Ani.pm Settlar provider
 │   ├── animegg.js           # AnimeGG provider
 │   ├── animeheaven.js       # Standalone AnimeHeaven provider
 │   ├── animekai.js          # Standalone AnimeKai provider
@@ -100,6 +107,7 @@ Anivio-providers/
 │   ├── mmani.js             # Standalone MMani (Anime BD) provider
 │   ├── nyaa.js              # Nyaa direct torrent provider
 │   ├── oppaistream.js       # OppaiStream provider
+│   ├── reanime.js           # ReAnime FlixCloud provider
 │   ├── senshi.js            # Senshi anime provider
 │   ├── torrentio.js         # Torrentio (P2P / Stremio) provider
 │   ├── uniquestream.js      # AnimeStream (UniqueStream) provider

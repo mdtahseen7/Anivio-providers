@@ -204,12 +204,68 @@ async function getEpisodeEmbeds(senshiId, epNum) {
     }
 }
 
+var cachedVendorJs = null;
+
 /**
- * Resolves a remote_source_id through the vidcloud source endpoint
- * (the same endpoint the senshi.to web player calls).
- * Returns { src, tracks } or null.
+ * Resolves a remote_source_id through the vidcloud Octopus engine
+ * or fallback endpoints.
  */
 async function resolveVidcloudSource(remoteId) {
+    if (!remoteId) return null;
+
+    // 1. Attempt Octopus engine via vendor.js
+    try {
+        if (!cachedVendorJs) {
+            var vRes = await fetch('https://cdn.vidcloud.se/vjs/vendor.js', {
+                headers: { 'User-Agent': UA }
+            });
+            if (vRes.ok) cachedVendorJs = await vRes.text();
+        }
+
+        if (cachedVendorJs) {
+            var origFetch = globalThis.fetch;
+            globalThis.fetch = async function(url, opts) {
+                opts = opts || {};
+                var h = new Headers(opts.headers || {});
+                if (!h.has('Referer')) h.set('Referer', SENSHI_BASE + '/');
+                if (!h.has('Origin')) h.set('Origin', SENSHI_BASE);
+                if (!h.has('User-Agent')) h.set('User-Agent', UA);
+                return origFetch(url, { ...opts, headers: h });
+            };
+
+            try {
+                if (!globalThis.__oct) {
+                    globalThis.window = globalThis;
+                    globalThis.document = {
+                        createElement: function() { return { setAttribute: function(){}, appendChild: function(){}, style: {} }; },
+                        head: { appendChild: function(){} },
+                        body: { appendChild: function(){} },
+                        addEventListener: function(){},
+                        getElementById: function(){ return null; }
+                    };
+                    globalThis.location = { href: SENSHI_BASE + '/watch/52299/1', origin: SENSHI_BASE };
+                    eval(cachedVendorJs);
+                }
+
+                if (globalThis.__oct && typeof globalThis.__oct.open === 'function') {
+                    var res = await globalThis.__oct.open(remoteId);
+                    if (res && res[0] && res[0].source && res[0].source[0] && res[0].source[0].src) {
+                        return {
+                            src: res[0].source[0].src,
+                            quality: '1080p',
+                            tracks: Array.isArray(res[0].tracks) ? res[0].tracks : []
+                        };
+                    }
+                }
+            } finally {
+                globalThis.fetch = origFetch;
+            }
+        }
+    } catch (e) {
+        console.warn('[senshi] Octopus resolution error:', e && e.message);
+    }
+
+    // 2. Fallback to legacy endpoint if available
     try {
         var res = await fetch(VIDCLOUD_SOURCES + '?id=' + encodeURIComponent(remoteId), {
             headers: {
@@ -219,18 +275,20 @@ async function resolveVidcloudSource(remoteId) {
                 'Accept': 'application/json'
             }
         });
-        if (!res.ok) return null;
-        var data = await res.json();
-        var entry = Array.isArray(data) ? data[0] : data;
-        if (!entry || !entry.source || !entry.source.src) return null;
-        return {
-            src: entry.source.src,
-            quality: entry.source.quality || 'auto',
-            tracks: Array.isArray(entry.tracks) ? entry.tracks : []
-        };
-    } catch (e) {
-        return null;
-    }
+        if (res.ok) {
+            var data = await res.json();
+            var entry = Array.isArray(data) ? data[0] : data;
+            if (entry && entry.source && entry.source.src) {
+                return {
+                    src: entry.source.src,
+                    quality: entry.source.quality || 'auto',
+                    tracks: Array.isArray(entry.tracks) ? entry.tracks : []
+                };
+            }
+        }
+    } catch (e) {}
+
+    return null;
 }
 
 /**
@@ -332,6 +390,48 @@ async function getStreams(id, type, season, episode) {
                 headers: STREAM_HEADERS,
                 subtitles: buildSubtitles(source.tracks)
             });
+        }
+
+        if (streams.length === 0) {
+            for (var e2 = 0; e2 < embeds.length; e2++) {
+                var emb = embeds[e2];
+                if (emb && emb.url) {
+                    streams.push({
+                        name: 'Senshi (' + (emb.status || 'HLS') + ')',
+                        title: 'Senshi · Ep ' + targetEp,
+                        server: 'Senshi',
+                        type: 'hls',
+                        quality: 'auto',
+                        url: emb.url.replace(/^http:\/\//i, 'https://'),
+                        headers: STREAM_HEADERS,
+                        subtitles: []
+                    });
+                }
+                if (emb && emb.server2) {
+                    streams.push({
+                        name: 'StreamNin',
+                        title: 'StreamNin · Ep ' + targetEp,
+                        server: 'StreamNin',
+                        type: 'embed',
+                        quality: 'auto',
+                        url: emb.server2,
+                        headers: STREAM_HEADERS,
+                        subtitles: []
+                    });
+                }
+                if (emb && emb.serverFM) {
+                    streams.push({
+                        name: 'FileMoon',
+                        title: 'FileMoon · Ep ' + targetEp,
+                        server: 'FileMoon',
+                        type: 'embed',
+                        quality: 'auto',
+                        url: emb.serverFM,
+                        headers: STREAM_HEADERS,
+                        subtitles: []
+                    });
+                }
+            }
         }
 
         console.log('[senshi] Total streams resolved: ' + streams.length);
