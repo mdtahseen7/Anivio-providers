@@ -20,6 +20,9 @@ var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var ANILIST_GRAPHQL = 'https://graphql.anilist.co';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
 var MAX_EPISODE_PAGES = 20; // ponytail: hard cap, bumps only if a show has >600 episodes
+// The kwik CDN (vault-*.uwucdn.top) rejects any request whose Referer/Origin is not
+// exactly kwik.cx, regardless of which kwik domain (kwik.cx / kwik.si) the embed used.
+var KWIK_ORIGIN = 'https://kwik.cx';
 
 /* ------------------------------------------------------------------ *
  * ID + title resolution
@@ -236,22 +239,18 @@ async function findEpisodeSession(animeSession, targetEp) {
  * ------------------------------------------------------------------ */
 
 /**
- * Parse the play page's #resolutionMenu buttons into kwik embed descriptors.
+ * Parse the play page's dropdown/download menu into kwik embed descriptors.
+ * Handles the current layout (#dropDownload / #pickDownload / .dropdown-item anchors)
+ * as well as the legacy <button data-src> layout, plus the `.click-to-load` default.
  * Returns array of { embed, audio, resolution }.
  */
 function parsePlayPage(html) {
     var out = [];
     var seen = {};
-    // <button ... data-src="https://kwik.si/e/XXXX" data-audio="jpn" data-resolution="1080" ...>
-    var re = /<button[^>]*\bdata-src=["']([^"']+)["'][^>]*>/gi;
-    var m;
-    while ((m = re.exec(html)) !== null) {
-        var tag = m[0];
-        var src = m[1];
-        if (!src || src.indexOf('kwik') === -1) continue;
-        if (seen[src]) continue;
-        seen[src] = true;
 
+    function push(src, tag) {
+        if (!src || src.indexOf('kwik') === -1 || seen[src]) return;
+        seen[src] = true;
         var audioMatch = tag.match(/\bdata-audio=["']([^"']+)["']/i);
         var resMatch = tag.match(/\bdata-resolution=["']([^"']+)["']/i);
         out.push({
@@ -260,6 +259,19 @@ function parsePlayPage(html) {
             resolution: resMatch ? resMatch[1] : null
         });
     }
+
+    // <a|button|li|div ... data-src="https://kwik.cx/e/XXXX" data-audio="jpn" data-resolution="1080">
+    var re = /<(?:a|button|li|div)[^>]*\b(?:data-src|href)=["']([^"']+)["'][^>]*>/gi;
+    var m;
+    while ((m = re.exec(html)) !== null) {
+        push(m[1], m[0]);
+    }
+
+    // Legacy/current default player: <div class="click-to-load" data-url="https://kwik.cx/e/...">
+    var def = html.match(/class=["'][^"']*click-to-load[^"']*["'][^>]*\bdata-url=["']([^"']+)["']/i) ||
+        html.match(/\bdata-url=["']([^"']+)["'][^>]*class=["'][^"']*click-to-load/i);
+    if (def) push(def[1], '');
+
     return out;
 }
 
@@ -269,7 +281,9 @@ function parsePlayPage(html) {
 
 function decodeDeanEdwards(packed) {
     try {
-        var m = packed.match(/}\s*\('(.*)',\s*(\d+),\s*(\d+),\s*'(.*?)'\.split\('\|'\)/s);
+        // Matches both the full `eval(function(p,a,c,k,e,d){...}('...',a,c,'k'.split('|'),0,{}))`
+        // wrapper and the bare argument list `('...',a,c,'k'.split('|')` that follows `return p}`.
+        var m = packed.match(/\(\s*'(.*?)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'(.*?)'\.split\('\|'\)/s);
         if (!m) return null;
 
         var p = m[1];
@@ -296,49 +310,58 @@ function decodeDeanEdwards(packed) {
     }
 }
 
-function kwikOrigin(embedUrl) {
-    try {
-        var u = new URL(embedUrl);
-        return u.protocol + '//' + u.host;
-    } catch (e) {
-        return 'https://kwik.si';
+/**
+ * Runs the kwik embed HTML through the Dean Edwards unpacker.
+ * kwik appends the packed call after `return p}` inside the eval(); we slice from there
+ * (up to the closing </script>) and fall back to unpacking the whole document.
+ * Returns the unpacked script (with the m3u8) or null.
+ */
+function unpackKwikEmbed(html) {
+    var candidates = [];
+    var idx = html.lastIndexOf('return p}');
+    if (idx !== -1) {
+        var callStr = html.slice(idx + 'return p}'.length);
+        var end = callStr.indexOf('</script>');
+        if (end !== -1) callStr = callStr.slice(0, end);
+        candidates.push(callStr);
     }
+    candidates.push(html);
+    for (var i = 0; i < candidates.length; i++) {
+        var decoded = decodeDeanEdwards(candidates[i]);
+        if (decoded && decoded.indexOf('.m3u8') !== -1) return decoded;
+    }
+    return null;
 }
 
 /**
  * Fetch a kwik embed URL and extract the direct .m3u8 (or .mp4) source.
- * Returns { url, origin } or null.
+ * Returns { url } or null.
  */
 async function resolveKwik(embedUrl) {
     try {
-        var origin = kwikOrigin(embedUrl);
         var res = await fetch(embedUrl, {
             headers: {
                 'User-Agent': UA,
-                'Referer': BASE_URL + '/' // kwik embeds expect an animepahe referer
+                'Referer': BASE_URL + '/',
+                'Origin': BASE_URL
             }
         });
         if (!res.ok) return null;
         var html = await res.text();
 
         // kwik ships the player config inside a packed eval(function(p,a,c,k,e,d){...})
-        var packedMatch = html.match(/eval\(function\(p,a,c,k,e,d\)[\s\S]*?\.split\('\|'\)[\s\S]*?\)\)/);
-        var searchIn = html;
-        if (packedMatch) {
-            var unpacked = decodeDeanEdwards(packedMatch[0]);
-            if (unpacked) searchIn = unpacked;
-        }
+        var searchIn = unpackKwikEmbed(html) || html;
 
-        // Unpacked script contains:  const source='https://.../uwu.m3u8'  (or an mp4)
-        var srcMatch = searchIn.match(/https?:\\?\/\\?\/[^\s"'\\]+\.m3u8[^\s"'\\]*/i) ||
-            searchIn.match(/https?:\\?\/\\?\/[^\s"'\\]+\.mp4[^\s"'\\]*/i) ||
-            searchIn.match(/source\s*=\s*['"]([^'"]+)['"]/i);
+        // Unpacked script contains the source URL: const source='https://.../uwu.m3u8'
+        var srcMatch = searchIn.match(/https?:\\?\/\\?\/[^\s"'\\<]+\.m3u8[^\s"'\\<]*/i) ||
+            searchIn.match(/https?:\\?\/\\?\/[^\s"'\\<]+\.mp4[^\s"'\\<]*/i) ||
+            searchIn.match(/source\s*[:=]\s*['"]([^'"]+)['"]/i);
 
         if (!srcMatch) return null;
         var url = (srcMatch[1] || srcMatch[0]).replace(/\\\//g, '/');
         if (!/^https?:\/\//i.test(url)) return null;
 
-        return { url: url, origin: origin };
+        return { url: url };
     } catch (e) {
         return null;
     }

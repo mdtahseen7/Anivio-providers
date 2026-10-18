@@ -821,7 +821,8 @@
       "logo": "https://animepahe.pw/favicon.ico",
       "needsCaptcha": true,
       "domains": [
-        "animepahe.pw"
+        "animepahe.pw",
+        "kwik.cx"
       ]
     },
     {
