@@ -1,13 +1,13 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.9.4",
+  "version": "1.9.5",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
       "id": "anibd",
       "name": "AniBD",
       "description": "AniBD anime stream provider with multi-server resolution and direct HLS streams.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "supportedTypes": [
         "movie",
@@ -829,7 +829,7 @@
       "id": "mmani",
       "name": "MMani",
       "description": "MMani (Anime BD) stream provider with 1080p/720p HLS streams, dual audio, and direct WebVTT subtitles.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "supportedTypes": [
         "movie",

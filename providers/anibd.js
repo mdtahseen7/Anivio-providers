@@ -10,10 +10,12 @@
  */
 
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
-var BASE_URL = 'https://epeng.animeapps.top';
-var SEARCH_URL = 'https://eng.animeapps.top/api/search3.php';
-var REFERER = 'https://mmani.com/'; // site moved from anibd.app to mmani.com (2026-10)
+var BASE_URL = 'https://mmani.com';
+var REFERER = 'https://mmani.com/';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+var cachedToken = '20821feefa3cd385c5850cc8';
+var tokenExpiry = 0;
 
 function getProxyBase() {
     return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
@@ -32,6 +34,30 @@ function getProxyUrl(targetUrl, referer) {
     return getProxyBase() + '/proxy?url=' + encodeURIComponent(targetUrl)
         + (referer ? ('&referer=' + encodeURIComponent(referer)) : '')
         + '&apiKey=' + encodeURIComponent(getApiKey());
+}
+
+/**
+ * Obtains or refreshes the required dynamic X-KF-Req API token.
+ */
+async function getKfToken() {
+    if (cachedToken && Date.now() < tokenExpiry) {
+        return cachedToken;
+    }
+    try {
+        var res = await fetch(BASE_URL + '/', {
+            headers: { 'User-Agent': UA, 'Referer': REFERER }
+        });
+        if (res.ok) {
+            var html = await res.text();
+            var m = html.match(/(?:window\.fetch,\s*["']([a-f0-9]+)["']|X-KF-Req['"],\s*["']([a-f0-9]+)["'])/i);
+            if (m && (m[1] || m[2])) {
+                cachedToken = m[1] || m[2];
+                tokenExpiry = Date.now() + 10 * 60 * 1000;
+                return cachedToken;
+            }
+        }
+    } catch (e) {}
+    return cachedToken || '20821feefa3cd385c5850cc8';
 }
 
 /**
@@ -175,13 +201,18 @@ async function getPrequelChain(anilistId) {
 }
 
 /**
- * Searches MMani by title as fallback.
+ * Searches AniBD / MMani by title as fallback.
  */
-async function searchMManiByTitle(title) {
+async function searchAniBDByTitle(title) {
     if (!title) return null;
+    var token = await getKfToken();
     try {
-        var res = await fetch(SEARCH_URL + '?keyword=' + encodeURIComponent(title), {
-            headers: { 'User-Agent': UA, 'Referer': REFERER }
+        var res = await fetch(BASE_URL + '/ajax.php?search&keyword=' + encodeURIComponent(title), {
+            headers: {
+                'User-Agent': UA,
+                'Referer': REFERER,
+                'X-KF-Req': token
+            }
         });
         if (!res.ok) return null;
         var json = await res.json();
@@ -197,19 +228,34 @@ async function searchMManiByTitle(title) {
  * Fetches episode servers for a given anime ID.
  */
 async function fetchEpisodeServers(anilistId) {
-    var serversRes = await fetch(BASE_URL + '/api2.php?epid=' + encodeURIComponent(anilistId), {
-        headers: {
-            'User-Agent': UA,
-            'Referer': REFERER
-        }
-    });
-
-    if (!serversRes.ok) return [];
-
-    var serversText = await serversRes.text();
-    if (!serversText || serversText.indexOf('error') !== -1) return [];
-
+    if (!anilistId) return [];
+    var token = await getKfToken();
     try {
+        var serversRes = await fetch(BASE_URL + '/ajax.php?episodes&epid=' + encodeURIComponent(anilistId), {
+            headers: {
+                'User-Agent': UA,
+                'Referer': REFERER,
+                'X-KF-Req': token
+            }
+        });
+
+        if (!serversRes.ok) return [];
+
+        var serversText = await serversRes.text();
+        if (!serversText || serversText.indexOf('error') !== -1 || serversText.indexOf('Forbidden') !== -1) {
+            if (serversText.indexOf('Forbidden') !== -1) {
+                tokenExpiry = 0;
+                token = await getKfToken();
+                serversRes = await fetch(BASE_URL + '/ajax.php?episodes&epid=' + encodeURIComponent(anilistId), {
+                    headers: { 'User-Agent': UA, 'Referer': REFERER, 'X-KF-Req': token }
+                });
+                if (!serversRes.ok) return [];
+                serversText = await serversRes.text();
+            } else {
+                return [];
+            }
+        }
+
         var parsed = JSON.parse(serversText);
         return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
@@ -245,7 +291,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         var resolvedViaPrequel = false;
         var prequelOffset = 0;
 
-        // 2. If not found on MMani, check if this is a sequel/season 2+ of a parent franchise
+        // 2. If not found, check if this is a sequel/season 2+ of a parent franchise
         if (serversData.length === 0) {
             console.log('[anibd] Direct ID ' + anilistId + ' not found. Checking prequel hierarchy...');
             var prequels = await getPrequelChain(anilistId);
@@ -266,8 +312,8 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         // 3. Fallback: Search by clean franchise title (stripping "Season 2", etc.)
         if (serversData.length === 0 && meta.title) {
             var cleaned = cleanTitle(meta.title);
-            console.log('[anibd] Searching MMani by title: ' + cleaned);
-            var searchedId = await searchMManiByTitle(cleaned);
+            console.log('[anibd] Searching AniBD by title: ' + cleaned);
+            var searchedId = await searchAniBDByTitle(cleaned);
             if (searchedId && searchedId !== anilistId) {
                 var titleServers = await fetchEpisodeServers(searchedId);
                 if (titleServers.length > 0) {
@@ -282,7 +328,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
             return [];
         }
 
-        // 4. Calculate candidate episode numbers to match on MMani
+        // 4. Calculate candidate episode numbers to match on AniBD
         var candidateEps = [];
         var isMultiSeason = resolvedViaPrequel || (meta.season > 1);
 
@@ -339,15 +385,17 @@ async function getStreams(tmdbId, mediaType, season, episode) {
 
         var streams = [];
         var seenUrls = new Set();
+        var token = await getKfToken();
 
         // 6. Resolve the player page for each link
         for (var k = 0; k < playerLinks.length; k++) {
             var item = playerLinks[k];
             try {
-                var linkRes = await fetch(BASE_URL + '/apilink.php?data=' + encodeURIComponent(item.link), {
+                var linkRes = await fetch(BASE_URL + '/ajax.php?eplink&data=' + encodeURIComponent(item.link), {
                     headers: {
                         'User-Agent': UA,
-                        'Referer': REFERER
+                        'Referer': REFERER,
+                        'X-KF-Req': token
                     }
                 });
                 if (!linkRes.ok) continue;
@@ -360,25 +408,53 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                     if (!playerObj.link) continue;
 
                     var playUrl = playerObj.link.replace(/\\\//g, '/');
-                    var isPlayAnien = playUrl.indexOf('play.anien.top') !== -1;
-                    var reqReferer = isPlayAnien ? REFERER : 'https://anibd.app/';
+
+                    // Handle legacy animeapps.top player URLs that migrated to play.anien.top
+                    var candidatePlayUrls = [];
+                    if (playUrl.indexOf('animeapps.top') !== -1 || playUrl.indexOf('play2.php') !== -1) {
+                        var urlParamMatch = playUrl.match(/[?&]url=([^&]+)/);
+                        if (urlParamMatch && urlParamMatch[1]) {
+                            var rawParam = decodeURIComponent(urlParamMatch[1]);
+                            candidatePlayUrls.push('https://play.anien.top/playsub.php?id=mmani1&sub=sub&url=' + encodeURIComponent(rawParam));
+                            candidatePlayUrls.push('https://play.anien.top/playsub.php?id=mmani2&sub=sub&url=' + encodeURIComponent(rawParam));
+                        }
+                    } else {
+                        candidatePlayUrls.push(playUrl);
+                    }
+
+                    var playHtml = '';
+                    var resolvedPlayUrl = '';
+                    for (var uIdx = 0; uIdx < candidatePlayUrls.length; uIdx++) {
+                        var testUrl = candidatePlayUrls[uIdx];
+                        try {
+                            var isPlayAnien = testUrl.indexOf('play.anien.top') !== -1;
+                            var reqReferer = isPlayAnien ? REFERER : 'https://anibd.app/';
+                            var playPageRes = await fetch(testUrl, {
+                                headers: {
+                                    'User-Agent': UA,
+                                    'Referer': reqReferer
+                                }
+                            });
+                            if (playPageRes.ok) {
+                                var bodyText = await playPageRes.text();
+                                if (bodyText && bodyText.indexOf('videoUrl') !== -1) {
+                                    playHtml = bodyText;
+                                    resolvedPlayUrl = testUrl;
+                                    break;
+                                }
+                            }
+                        } catch (e) {}
+                    }
+
+                    if (!playHtml) continue;
 
                     // 7. Extract direct videoUrl and subtitles from player HTML
-                    var playPageRes = await fetch(playUrl, {
-                        headers: {
-                            'User-Agent': UA,
-                            'Referer': reqReferer
-                        }
-                    });
-                    if (!playPageRes.ok) continue;
-
-                    var playHtml = await playPageRes.text();
                     var match = playHtml.match(/["\x27]?videoUrl["\x27]?\s*:\s*["\x27]([^"\x27]+)["\x27]/);
                     if (match && match[1]) {
                         var videoPath = match[1];
                         var absoluteVideoUrl = videoPath.indexOf('http') === 0
                             ? videoPath
-                            : new URL(videoPath, playUrl).toString();
+                            : new URL(videoPath, resolvedPlayUrl).toString();
 
                         if (seenUrls.has(absoluteVideoUrl)) continue;
                         seenUrls.add(absoluteVideoUrl);
@@ -395,7 +471,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                                         if (tr && tr.file && tr.file.indexOf('.vtt') !== -1) {
                                             var subUrl = tr.file.indexOf('http') === 0
                                                 ? tr.file
-                                                : new URL(tr.file, playUrl).toString();
+                                                : new URL(tr.file, resolvedPlayUrl).toString();
                                             subtitles.push({
                                                 url: getProxyUrl(subUrl, REFERER),
                                                 language: (tr.label || 'en').toLowerCase().slice(0, 2),
