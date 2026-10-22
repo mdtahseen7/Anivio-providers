@@ -7,7 +7,7 @@
  * Conforms to Anivio Plugin Guide specifications:
  * - Engine: QuickJS (supports async/await natively, no transpilation)
  * - Single self-contained file (no import/export)
- * - Supported IDs: anilist:<id>, mal:<id>, numeric TMDB id, and "603" (Anivio Test button)
+ * - Supported IDs: anilist:<id>, mal:<id>, numeric TMDB/AniList id, and "603" (Anivio Test button)
  * - Multi-tiered resolution: Direct AniList embed -> Direct MAL embed -> Title search & Arc mapping
  * - Direct high-speed 1080p Full HD MP4 streams with open CORS
  */
@@ -25,7 +25,7 @@ function classifyId(rawId) {
     var l = v.toLowerCase();
     if (l.indexOf('anilist:') === 0) return { kind: 'anilist', id: v.slice('anilist:'.length).split(':')[0] };
     if (l.indexOf('mal:') === 0) return { kind: 'mal', id: v.slice('mal:'.length).split(':')[0] };
-    if (/^\d+$/.test(v)) return { kind: 'tmdb', id: v };
+    if (/^\d+$/.test(v)) return { kind: 'numeric', id: v };
     return { kind: 'unknown', id: v };
 }
 
@@ -53,23 +53,28 @@ async function resolveAnimeMeta(rawId, season, episode) {
         return { anilistId: '154587', malId: '52991', title: 'Frieren: Beyond Journey’s End', absEp: null, season: 1 };
     }
 
-    var query = '';
-    if (classified.kind === 'anilist') query = '?anilist_id=' + encodeURIComponent(classified.id);
-    else if (classified.kind === 'mal') query = '?mal_id=' + encodeURIComponent(classified.id);
-    else if (classified.kind === 'tmdb') query = '?themoviedb_id=' + encodeURIComponent(classified.id);
-    else if (/^\d+$/.test(classified.id)) query = '?anilist_id=' + encodeURIComponent(classified.id);
+    var queries = [];
+    if (classified.kind === 'anilist') {
+        queries.push('?anilist_id=' + encodeURIComponent(classified.id));
+    } else if (classified.kind === 'mal') {
+        queries.push('?mal_id=' + encodeURIComponent(classified.id));
+    } else if (classified.kind === 'numeric') {
+        // Anivio anime browsing passes numeric AniList IDs, TMDB fallback
+        queries.push('?anilist_id=' + encodeURIComponent(classified.id));
+        queries.push('?themoviedb_id=' + encodeURIComponent(classified.id));
+    }
 
     var meta = {
-        anilistId: classified.kind === 'anilist' ? classified.id : null,
+        anilistId: classified.kind === 'anilist' || classified.kind === 'numeric' ? classified.id : null,
         malId: classified.kind === 'mal' ? classified.id : null,
         title: '',
         absEp: null,
         season: parseInt(season || 1, 10)
     };
 
-    if (query) {
+    for (var i = 0; i < queries.length; i++) {
         try {
-            var res = await fetch(ANIZIP_ENDPOINT + query, {
+            var res = await fetch(ANIZIP_ENDPOINT + queries[i], {
                 headers: { 'Accept': 'application/json', 'User-Agent': UA }
             });
             if (res.ok) {
@@ -98,11 +103,41 @@ async function resolveAnimeMeta(rawId, season, episode) {
                 if (epObj && epObj.absoluteEpisodeNumber) {
                     meta.absEp = epObj.absoluteEpisodeNumber;
                 }
+                break;
             }
         } catch (e) {}
     }
 
     return meta;
+}
+
+/**
+ * Pure JavaScript Base64 + XOR decryptor for AniXo stream URLs.
+ * Fully compatible with QuickJS (no Buffer, no atob dependency).
+ */
+function decodeXor(encoded, key) {
+    if (!encoded || !key) return '';
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+    var str = String(encoded).replace(/[\t\n\f\r ]+/g, '');
+    var binary = '';
+    for (var i = 0; i < str.length; ) {
+        var enc1 = chars.indexOf(str.charAt(i++));
+        var enc2 = chars.indexOf(str.charAt(i++));
+        var enc3 = chars.indexOf(str.charAt(i++));
+        var enc4 = chars.indexOf(str.charAt(i++));
+        if (enc1 === -1 || enc2 === -1) break;
+        var chr1 = (enc1 << 2) | (enc2 >> 4);
+        var chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        var chr3 = ((enc3 & 3) << 6) | enc4;
+        binary += String.fromCharCode(chr1);
+        if (enc3 !== 64 && enc3 !== -1) binary += String.fromCharCode(chr2);
+        if (enc4 !== 64 && enc4 !== -1) binary += String.fromCharCode(chr3);
+    }
+    var res = '';
+    for (var j = 0; j < binary.length; j++) {
+        res += String.fromCharCode(binary.charCodeAt(j) ^ key.charCodeAt(j % key.length));
+    }
+    return res;
 }
 
 /**
@@ -119,9 +154,25 @@ async function extractStreamFromEmbed(embedUrl) {
         });
         if (!res.ok) return null;
         var html = await res.text();
-        var match = html.match(/const\s+streamUrl\s*=\s*['"]([^'"]+)['"]/);
-        if (match && match[1]) {
-            var rawStream = match[1];
+
+        // 1. Try XOR-obfuscated streamUrl (_p0 + _k0)
+        var pMatch = html.match(/const\s+_p0\s*=\s*['"]([^'"]+)['"]/);
+        var kMatch = html.match(/const\s+_k0\s*=\s*['"]([^'"]+)['"]/);
+        var rawStream = null;
+
+        if (pMatch && kMatch) {
+            rawStream = decodeXor(pMatch[1], kMatch[1]);
+        }
+
+        // 2. Fallback to plaintext streamUrl
+        if (!rawStream) {
+            var match = html.match(/const\s+streamUrl\s*=\s*['"]([^'"]+)['"]/);
+            if (match && match[1]) {
+                rawStream = match[1];
+            }
+        }
+
+        if (rawStream) {
             var absoluteUrl = rawStream.indexOf('http') === 0
                 ? rawStream
                 : new URL(rawStream, EMBED_BASE).toString();
@@ -159,7 +210,7 @@ async function searchAniXoHindi(query) {
 /**
  * Main stream resolver required by Anivio.
  *
- * @param {string} rawId - Raw identifier (anilist:123, mal:123, numeric TMDB id, or "603")
+ * @param {string} rawId - Raw identifier (anilist:123, mal:123, numeric TMDB/AniList id, or "603")
  * @param {string} mediaType - "movie" | "tv"
  * @param {number|undefined} season - Season number
  * @param {number|undefined} episode - Episode number
@@ -192,6 +243,7 @@ async function getStreams(rawId, mediaType, season, episode) {
                     streams.push({
                         name: 'AniXo Hindi (1080p)',
                         title: 'AniXo Hindi · ' + (res.title || 'Hindi Dub') + ' · Ep ' + targetEp + ' · 1080p FHD',
+                        server: 'AniXo Hindi',
                         url: res.streamUrl,
                         quality: '1080p',
                         type: 'mp4',
@@ -216,6 +268,7 @@ async function getStreams(rawId, mediaType, season, episode) {
                     streams.push({
                         name: 'AniXo Hindi (1080p)',
                         title: 'AniXo Hindi · ' + (res.title || 'Hindi Dub') + ' · Ep ' + targetEp + ' · 1080p FHD',
+                        server: 'AniXo Hindi',
                         url: res.streamUrl,
                         quality: '1080p',
                         type: 'mp4',
@@ -254,6 +307,7 @@ async function getStreams(rawId, mediaType, season, episode) {
                             streams.push({
                                 name: 'AniXo Hindi (1080p)',
                                 title: 'AniXo Hindi · ' + (res.title || item.title || 'Hindi Dub') + ' · Ep ' + targetEp + ' · 1080p FHD',
+                                server: 'AniXo Hindi',
                                 url: res.streamUrl,
                                 quality: '1080p',
                                 type: 'mp4',
@@ -286,6 +340,7 @@ async function getStreams(rawId, mediaType, season, episode) {
                                             streams.push({
                                                 name: 'AniXo Hindi (1080p)',
                                                 title: 'AniXo Hindi · ' + (res.title || item.title || 'Hindi Dub') + ' · Ep ' + targetEp + ' · 1080p FHD',
+                                                server: 'AniXo Hindi',
                                                 url: res.streamUrl,
                                                 quality: '1080p',
                                                 type: 'mp4',

@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.9.6",
+  "version": "1.9.8",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -1069,7 +1069,7 @@
       "id": "anixohindi",
       "name": "AniXo Hindi",
       "description": "AniXo Hindi anime provider streaming authentic 1080p Full HD Hindi Dubbed anime series and movies with direct playback.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "logo": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/tautulli.png",
       "supportedTypes": [
@@ -1080,13 +1080,42 @@
       "enabled": true,
       "hasSettings": true,
       "formats": [
+        "m3u8",
         "mp4"
       ],
       "contentLanguage": [
-        "hi"
+        "hi",
+        "ja",
+        "en"
       ],
       "supportedFormats": [
         "mp4",
+        "hls"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "anv",
+      "name": "ANV",
+      "description": "High-speed anime streaming provider powered by ANV with multi-server sub and dub HLS streams and multilingual subtitles.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/tautulli.png",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/anv.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
         "hls"
       ],
       "supportsExternalPlayer": true
