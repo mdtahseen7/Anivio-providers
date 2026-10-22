@@ -1086,7 +1086,8 @@
         "hi"
       ],
       "supportedFormats": [
-        "mp4"
+        "mp4",
+        "hls"
       ],
       "supportsExternalPlayer": true
     }
