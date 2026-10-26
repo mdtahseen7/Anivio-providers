@@ -19,7 +19,7 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 
 ---
 
-## Available Providers (40 Active)
+## Available Providers (43 Active)
 
 | Provider | Content Type | Stream Format | Highlights & Features | Status |
 |---|---|---|---|:---:|
@@ -70,9 +70,10 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 
 ```
 Anivio-providers/
-├── manifest.json            # Repository manifest listing all 40 available providers
+├── manifest.json            # Repository manifest listing all 43 available providers
 ├── icons/                   # Local provider icon assets (PNG / ICO)
 ├── providers/
+│   ├── anifam.js            # AniFam anime provider (Sub & Dub, HD-1)
 │   ├── anibd.js             # AniBD anime provider
 │   ├── anichi.js            # AniChi provider
 │   ├── anihub.js            # AniHub (Hindi Dub) provider
