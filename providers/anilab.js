@@ -332,12 +332,14 @@ async function resolveAnimeMeta(rawId, season, episode) {
         query = '?themoviedb_id=' + encodeURIComponent(classified.id);
     }
 
+    var explicitSeason = parseInt(season || 1, 10);
     var meta = {
         anilabId: '',
         anilistId: classified.id,
         title: '',
         absEp: null,
-        season: parseInt(season || 1, 10)
+        relEp: null,
+        season: explicitSeason
     };
 
     if (query) {
@@ -354,21 +356,44 @@ async function resolveAnimeMeta(rawId, season, episode) {
                 meta.title = titles.en || titles.ro || titles.ja || '';
 
                 var targetEp = parseInt(episode || 1, 10);
-                var targetSeason = meta.season;
                 var eps = (data && data.episodes) ? data.episodes : {};
 
-                var epObj = eps[String(targetEp)];
-                if (targetSeason > 1) {
+                var epObj = null;
+                if (explicitSeason > 1) {
+                    // Explicit season+episode call (e.g. test harnesses): match
+                    // by season/episode numbers, falling back to the raw key.
+                    epObj = eps[String(targetEp)];
                     for (var k in eps) {
                         var e = eps[k];
-                        if (e && e.seasonNumber === targetSeason && e.episodeNumber === targetEp) {
+                        if (e && e.seasonNumber === explicitSeason && e.episodeNumber === targetEp) {
                             epObj = e;
                             break;
                         }
                     }
+                } else {
+                    // Anivio's anime contract: season is always 1 and episode
+                    // is the show's absolute (AniList) episode number, which
+                    // can sit in any ani.zip season of this entry. Find the
+                    // episode whose absoluteEpisodeNumber equals it.
+                    for (var ka in eps) {
+                        var ea = eps[ka];
+                        if (ea && ea.absoluteEpisodeNumber === targetEp) {
+                            epObj = ea;
+                            break;
+                        }
+                    }
+                    if (!epObj) epObj = eps[String(targetEp)];
                 }
-                if (epObj && epObj.absoluteEpisodeNumber) {
-                    meta.absEp = epObj.absoluteEpisodeNumber;
+                if (epObj) {
+                    if (epObj.absoluteEpisodeNumber) {
+                        meta.absEp = parseInt(epObj.absoluteEpisodeNumber, 10) || null;
+                    }
+                    meta.relEp = parseInt(epObj.episodeNumber || 0, 10) || null;
+                    // Derive the effective season from the mapping data unless
+                    // the caller explicitly forced one.
+                    if (explicitSeason <= 1 && epObj.seasonNumber) {
+                        meta.season = parseInt(epObj.seasonNumber, 10) || meta.season;
+                    }
                 }
             }
         } catch (e) {}
@@ -689,16 +714,24 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         var epObj = null;
         var matchedNum = '';
         var candidates = [];
-        // Prefer the explicit season-relative episode (what the app's UI shows
-        // the user); ani.zip absolute numbers come from a merged-TVDB ordering
-        // that can disagree wildly with per-season layouts, so they are only a
-        // last-resort candidate.
-        candidates.push(String(seasonEp));
-        if (String(targetEp) !== String(seasonEp)) candidates.push(String(targetEp));
-        if (meta.absEp) {
-            var absStr = String(Math.max(1, meta.absEp));
-            if (candidates.indexOf(absStr) === -1) candidates.push(absStr);
+        // Candidate episode numbers inside the chosen season's list.
+        // KYOTO seasons either restart numbering at 1 (Shippuden-style) or
+        // continue the franchise count (Apothecary/Black-Clover-style).
+        // Cover both layouts, in priority order:
+        //   1. relEp      — per-season number from ani.zip (seasonNumber path)
+        //   2. seasonEp   — season-relative number computed by pickSeason
+        //   3. targetEp   — what the host app passed (absolute for anime)
+        //   4. absEp      — absolute number from ani.zip
+        function pushCand(x) {
+            if (x == null) return;
+            var s = String(x);
+            if (!s || s === '0' || s === 'NaN' || candidates.indexOf(s) !== -1) return;
+            candidates.push(s);
         }
+        pushCand(meta.relEp);
+        pushCand(seasonEp);
+        pushCand(targetEp);
+        if (meta.absEp) pushCand(Math.max(1, meta.absEp));
         for (var ci = 0; ci < candidates.length && !epObj; ci++) {
             for (var ei = 0; ei < epsList.length; ei++) {
                 if (String(epsList[ei].number) === candidates[ci]) {
