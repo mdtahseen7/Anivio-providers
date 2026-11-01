@@ -854,8 +854,8 @@
     {
       "id": "anilab",
       "name": "AniLab",
-      "description": "AniLab provider via AniLab catalog + KYOTO/anidb backend with Sub/Dub servers and multi-quality HLS streams.",
-      "version": "1.0.0",
+      "description": "AniLab provider via AniLab catalog + KYOTO backend (api.kyotoplayer.com) with Sub/Dub servers and multi-quality HLS streams.",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "supportedTypes": [
         "movie",

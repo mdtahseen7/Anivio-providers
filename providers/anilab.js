@@ -6,16 +6,44 @@
  * - Single self-contained file (no import/export)
  * - Supported IDs: anilab:<id>, bare AniLab numeric id (100000xxxx),
  *   anilist:<id>, mal:<id>, numeric TMDB id, and "603" (Anivio Test button)
- * - Chain: AniLab catalog (search/post) -> KYOTO v4 post -> anidb
- *   episodes -> anidb servers -> anidb iframe -> direct xlsbox HLS
+ * - Chain: AniLab catalog (search/post) -> KYOTO api.kyotoplayer.com
+ *   seasons -> episodes -> stream -> direct xlsbox HLS
  * - Multi-quality variant expansion from the master m3u8 playlist
+ *
+ * KYOTO API details recovered by RE of the AniLab APK (v131):
+ * - Base URL: https://api.kyotoplayer.com/ (all endpoints are POST,
+ *   x-www-form-urlencoded; /update is a plain POST)
+ * - Endpoints: seasons{id}, episodes{id,token}, servers{id,episode},
+ *   stream{id,server}, series{ids}, player{embed}, update, log
+ * - Requests carry anti-bot headers and a native HMAC signature:
+ *     ts        = unix epoch seconds
+ *     nonce     = 16 random bytes, base64url, padding stripped
+ *     message   = "METHOD\n<path>\n<sha256hex(body)>\n<ts>\n<nonce>\n131"
+ *     sig       = HMAC-SHA256(T1, message).hex()
+ *   where T1 = HMAC-SHA256(K1, sha256(APK signingBlock blob)) is a constant
+ *   baked into libkyoto.so (extracted by emulating nativeSign under unicorn),
+ *   and K1 = 904e4bec7b2f8f85fa83cb4c8cd86bfb39d960cb4abaee5251e597111889a47b.
+ * - The server occasionally round-robins to backends with skewed validation;
+ *   the app itself retries on 401 with a fresh ts/nonce, we do the same.
  */
 
 var ANILAB_API = 'https://anilab2.amdapi.click/api';
-var KYOTO_API = 'https://app.kyotoplayer.com/api/v4';
+var KYOTO_API = 'https://api.kyotoplayer.com';
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
-var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-var IFRAME_REFERER = 'https://play.app/';
+var UA = 'okhttp/4.12.0';
+var APP_VERSION = '131';
+
+/* --- signing constants (see header comment) ---------------------------- */
+var K1_HEX = '904e4bec7b2f8f85fa83cb4c8cd86bfb39d960cb4abaee5251e597111889a47b';
+var BLOB_HEX = '482a900b2906766b2e8d3cf19fcf6d06d0b6c9569cb6305c9c43200a8e20979e';
+var _T1_hex = null;
+/** HMAC-SHA256(K1, sha256(APK signing block blob)) — computed lazily. */
+function T1hex() {
+    if (!_T1_hex) {
+        _T1_hex = bytesToHex(hmacSHA256(hexToBytes(K1_HEX), hexToBytes(BLOB_HEX)));
+    }
+    return _T1_hex;
+}
 
 /**
  * Preferred audio track ('sub' | 'dub'). Overridable via SCRAPER_SETTINGS.
@@ -25,6 +53,209 @@ function getAudioPref() {
         ? String(SCRAPER_SETTINGS.audio).toLowerCase()
         : 'sub';
     return pref === 'dub' ? 'dub' : 'sub';
+}
+
+/* --- minimal pure-JS SHA-256 / HMAC-SHA256 ------------------------------ */
+/* Compact implementations (work on byte arrays); used to replicate the
+ * native libkyoto.so signature without external dependencies. */
+
+function hexToBytes(hex) {
+    var out = new Array(hex.length / 2);
+    for (var i = 0; i < out.length; i++) {
+        out[i] = parseInt(hex.substr(i * 2, 2), 16);
+    }
+    return out;
+}
+
+function bytesOf(str) {
+    // UTF-8 encode
+    var out = [];
+    for (var i = 0; i < str.length; i++) {
+        var c = str.charCodeAt(i);
+        if (c < 0x80) out.push(c);
+        else if (c < 0x800) { out.push(0xC0 | (c >> 6), 0x80 | (c & 63)); }
+        else if (c >= 0xD800 && c < 0xDC00 && i + 1 < str.length) {
+            var c2 = str.charCodeAt(++i);
+            var cp = 0x10000 + ((c & 0x3FF) << 10) + (c2 & 0x3FF);
+            out.push(0xF0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63));
+        } else { out.push(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63)); }
+    }
+    return out;
+}
+
+function bytesToHex(b) {
+    var s = '';
+    for (var i = 0; i < b.length; i++) s += (b[i] < 16 ? '0' : '') + b[i].toString(16);
+    return s;
+}
+
+var SHA_K = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2];
+
+function rol(x, n) { return ((x << n) | (x >>> (32 - n))) >>> 0; }
+function rotr(x, n) { return ((x >>> n) | (x << (32 - n))) >>> 0; }
+
+/** SHA-256 over Array<number> bytes -> Array<number> (32). */
+function sha256(msgBytes) {
+    var len = msgBytes.length;
+    var bitLenHi = Math.floor(len / 0x20000000);
+    var bitLenLo = (len << 3) >>> 0;
+    var withPad = msgBytes.slice();
+    withPad.push(0x80);
+    while (withPad.length % 64 !== 56) withPad.push(0);
+    withPad.push((bitLenHi >>> 24) & 255, (bitLenHi >>> 16) & 255, (bitLenHi >>> 8) & 255, bitLenHi & 255,
+                 (bitLenLo >>> 24) & 255, (bitLenLo >>> 16) & 255, (bitLenLo >>> 8) & 255, bitLenLo & 255);
+    var H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    var w = new Array(64);
+    for (var off = 0; off < withPad.length; off += 64) {
+        for (var t = 0; t < 16; t++) {
+            w[t] = ((withPad[off + 4 * t] << 24) | (withPad[off + 4 * t + 1] << 16) |
+                    (withPad[off + 4 * t + 2] << 8) | withPad[off + 4 * t + 3]) >>> 0;
+        }
+        for (var tt = 16; tt < 64; tt++) {
+            var s0 = rotr(w[tt - 15], 7) ^ rotr(w[tt - 15], 18) ^ (w[tt - 15] >>> 3);
+            var s1 = rotr(w[tt - 2], 17) ^ rotr(w[tt - 2], 19) ^ (w[tt - 2] >>> 10);
+            w[tt] = (w[tt - 16] + s0 + w[tt - 7] + s1) >>> 0;
+        }
+        var a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+        for (var ti = 0; ti < 64; ti++) {
+            var S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+            var ch = (e & f) ^ (~e & g);
+            var temp1 = (h + S1 + ch + SHA_K[ti] + w[ti]) >>> 0;
+            var S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+            var maj = (a & b) ^ (a & c) ^ (b & c);
+            var temp2 = (S0 + maj) >>> 0;
+            h = g; g = f; f = e; e = (d + temp1) >>> 0; d = c; c = b; b = a; a = (temp1 + temp2) >>> 0;
+        }
+        H[0] = (H[0] + a) >>> 0; H[1] = (H[1] + b) >>> 0; H[2] = (H[2] + c) >>> 0; H[3] = (H[3] + d) >>> 0;
+        H[4] = (H[4] + e) >>> 0; H[5] = (H[5] + f) >>> 0; H[6] = (H[6] + g) >>> 0; H[7] = (H[7] + h) >>> 0;
+    }
+    var out = [];
+    for (var hi = 0; hi < 8; hi++) {
+        out.push((H[hi] >>> 24) & 255, (H[hi] >>> 16) & 255, (H[hi] >>> 8) & 255, H[hi] & 255);
+    }
+    return out;
+}
+
+/** HMAC-SHA256(keyBytes, msgBytes) -> Array<number> (32). */
+function hmacSHA256(keyBytes, msgBytes) {
+    var block = 64;
+    var k = keyBytes.slice();
+    if (k.length > block) k = sha256(k);
+    while (k.length < block) k.push(0);
+    var ipad = [], opad = [];
+    for (var i = 0; i < block; i++) {
+        ipad.push((k[i] ^ 0x36) & 255);
+        opad.push((k[i] ^ 0x5c) & 255);
+    }
+    var innerHash = sha256(ipad.concat(msgBytes));
+    return sha256(opad.concat(innerHash));
+}
+
+
+
+function sha256Hex(str) {
+    return bytesToHex(sha256(bytesOf(str)));
+}
+
+/* --- base64url nonce ---------------------------------------------------- */
+var B64URL_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+function randomBytes(n) {
+    var out = new Array(n);
+    if (typeof crypto !== 'undefined' && crypto && crypto.getRandomValues && typeof Uint8Array !== 'undefined') {
+        var buf = new Uint8Array(n);
+        crypto.getRandomValues(buf);
+        for (var i = 0; i < n; i++) out[i] = buf[i];
+        return out;
+    }
+    for (var j = 0; j < n; j++) {
+        out[j] = Math.floor(Math.random() * 256);
+    }
+    return out;
+}
+
+function makeNonce() {
+    // 16 random bytes -> base64url -> equals 22 chars without padding
+    var bytes = randomBytes(16);
+    var s = '';
+    for (var i = 0; i < 15; i += 3) {
+        var n = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+        s += B64URL_ALPHABET[(n >> 18) & 63] + B64URL_ALPHABET[(n >> 12) & 63] +
+             B64URL_ALPHABET[(n >> 6) & 63] + B64URL_ALPHABET[n & 63];
+    }
+    // remaining byte: 16 = 5*3 + 1
+    s += B64URL_ALPHABET[(bytes[15] >> 2) & 63] + B64URL_ALPHABET[(bytes[15] << 4) & 63];
+    return s; // 22 chars, base64url of 16 bytes, no padding
+}
+
+/**
+ * Builds POST form body exactly as okhttp's @Field would (percent-encoding
+ * reserved chars), plus the signature headers for those exact bytes.
+ */
+function buildKyotoRequest(path, params) {
+    var parts = [];
+    var keys = Object.keys(params);
+    for (var i = 0; i < keys.length; i++) {
+        parts.push(keys[i] + '=' + encodeURIComponent(String(params[keys[i]])));
+    }
+    var body = parts.join('&');
+    var ts = String(Math.floor(Date.now() / 1000));
+    var nonce = makeNonce();
+    var bodyBytes = bytesOf(body);
+    var message = 'POST' + '\n' + path + '\n' + bytesToHex(sha256(bodyBytes)) + '\n' +
+                  ts + '\n' + nonce + '\n' + APP_VERSION;
+    var sig = bytesToHex(hmacSHA256(hexToBytes(T1hex()), bytesOf(message)));
+    var headers = {
+        'Accept': 'application/json',
+        'os-version': '34',
+        'app-id': 'com.kyotoplayer',
+        'app-version': APP_VERSION,
+        'device-model': 'Pixel 6',
+        'X-Kyoto-Ts': ts,
+        'X-Kyoto-Nonce': nonce,
+        'X-Kyoto-Sig': sig,
+        'Content-Type': 'application/x-www-form-urlencoded'
+    };
+    return { url: KYOTO_API + path, body: body, headers: headers };
+}
+
+/**
+ * Signed POST to the KYOTO API. Retries up to 4 times on 401 with a fresh
+ * ts/nonce (the app's own okhttp interceptor does the same on skews).
+ */
+async function kyotoPost(path, params) {
+    var lastErr = '';
+    for (var attempt = 0; attempt < 4; attempt++) {
+        var req = buildKyotoRequest(path, params);
+        try {
+            var res = await fetch(req.url, {
+                method: 'POST',
+                headers: req.headers,
+                body: req.body
+            });
+            if (res.status === 401) {
+                lastErr = '401';
+                continue;
+            }
+            if (!res.ok) {
+                console.log('[anilab] kyoto ' + path + ' -> HTTP ' + res.status);
+                return null;
+            }
+            return await res.json();
+        } catch (e) {
+            lastErr = (e && e.message) || String(e);
+        }
+    }
+    console.log('[anilab] kyoto ' + path + ' failed: ' + lastErr);
+    return null;
 }
 
 /**
@@ -83,7 +314,7 @@ async function resolveAnimeMeta(rawId, season, episode) {
     var classified = classifyId(rawId);
 
     // Anivio's built-in "Test" button always passes tmdbId = "603" with season=1, episode=1.
-    // Firefly Wedding is a single-episode title verified live on AniLab/KYOTO.
+    // Firefly Wedding is verified live on AniLab/KYOTO (id 1000006489).
     if (classified.id === '603') {
         return { anilabId: '1000006489', anilistId: '', title: 'Firefly Wedding', absEp: null, season: 1 };
     }
@@ -160,7 +391,7 @@ function seasonMarker(title) {
 }
 
 /**
- * Scores an AniLab detail title against the wanted title + season.
+ * Scores a KYOTO season/series title against the wanted title + season.
  * 3 = cleaned exact match, 2 = containment with season-marker agreement,
  * 1 = plain containment, 0 = no match.
  */
@@ -176,74 +407,157 @@ function titleScore(detailTitle, wantClean, wantSeason) {
 }
 
 /**
- * Fetches the KYOTO v4 post config + episode index for an AniLab catalog id.
- * Returns { post, epsList } or null.
+ * Fetches the KYOTO season list for a catalog id.
+ * Returns [{id, number, title, ...}] or [].
  */
-async function fetchKyotoIndex(anilabId) {
-    var post = await getJson(KYOTO_API + '/post?id=' + encodeURIComponent(anilabId));
-    if (!post || !post.episodes) return null;
-    var epsData = await getJson(post.episodes);
-    var epsList = (epsData && epsData.list) ? epsData.list : [];
-    return { post: post, epsList: epsList };
+async function fetchSeasons(catalogId) {
+    var data = await kyotoPost('/seasons', { id: String(catalogId) });
+    var list = (data && data.list) ? data.list : [];
+    var out = [];
+    for (var i = 0; i < list.length; i++) {
+        var s = list[i];
+        if (!s || !s.id) continue;
+        out.push({
+            id: String(s.id),
+            number: parseInt(s.number || 1, 10) || 1,
+            title: s.title || '',
+            episodes: parseInt(s.episodes || '0', 10) || 0,
+            current: !!s.current
+        });
+    }
+    return out;
 }
 
 /**
- * Searches the AniLab catalog by title and returns the best matching catalog id.
- * AniLab search only returns [{id, poster, age}], so the top candidates are
- * verified via their post detail titles (season-aware) and, when an absolute
- * episode number is known, via its presence in the KYOTO episode index.
+ * Fetches the KYOTO episode list for a season id.
+ * Episodes carry inline server lists ({id:"<ep>/<lang>", lang, name}).
+ * Returns { eps, subMap } or null.
+ */
+async function fetchEpisodes(seasonId) {
+    var data = await kyotoPost('/episodes', { id: String(seasonId), token: '0' });
+    if (!data) return null;
+    var list = data.list || [];
+    var eps = [];
+    for (var i = 0; i < list.length; i++) {
+        var e = list[i];
+        if (!e || !e.id) continue;
+        eps.push({
+            id: String(e.id),
+            name: e.name || '',
+            number: parseInt(e.number || '0', 10) || 0,
+            servers: (e.servers || []).filter(function (s) { return s && s.id; })
+        });
+    }
+    return eps;
+}
+
+/**
+ * Searches the AniLab catalog by title (AMDAPI search) and ranks candidates
+ * by matching their KYOTO season titles. Returns [{id, score, title}] sorted
+ * best-first, or [].
  */
 async function searchAniLab(title, season, absEp) {
-    if (!title) return null;
+    if (!title) return [];
     try {
         var res = await fetch(ANILAB_API + '/search?query=' + encodeURIComponent(title) + '&page=1', {
             headers: { 'User-Agent': UA, 'Accept': 'application/json' }
         });
-        if (!res.ok) return null;
+        if (!res.ok) return [];
         var json = await res.json();
         var posts = (json && json.posts) ? json.posts : [];
-        if (posts.length === 0) return null;
+        if (posts.length === 0) return [];
 
         var wantClean = normTitle(cleanTitle(title));
         var wantSeason = parseInt(season || 1, 10);
         var scored = [];
-        var count = Math.min(posts.length, 3);
+        var count = Math.min(posts.length, 4);
         for (var i = 0; i < count; i++) {
+            var catalogId = String(posts[i].id);
+            if (!/^1000\d+$/.test(catalogId)) continue;
             try {
-                var det = await fetch(ANILAB_API + '/post?id=' + encodeURIComponent(String(posts[i].id)), {
-                    headers: { 'User-Agent': UA, 'Accept': 'application/json' }
-                });
-                if (!det.ok) continue;
-                var post = await det.json();
-                var score = titleScore(post.title || '', wantClean, wantSeason);
-                if (score > 0) {
-                    scored.push({ id: String(posts[i].id), title: post.title || '', score: score });
+                var seasons = await fetchSeasons(catalogId);
+                // Score every season title of this catalog entry; a franchise
+                // entry ("Naruto" -> "Naruto Shippuden") matches per-season.
+                var best = 0;
+                var bestSeason = null;
+                for (var sj = 0; sj < seasons.length; sj++) {
+                    var sc = titleScore(seasons[sj].title, wantClean, wantSeason);
+                    if (sc > best) { best = sc; bestSeason = seasons[sj]; }
+                }
+                if (best > 0) {
+                    scored.push({ id: catalogId, score: best, title: bestSeason ? bestSeason.title : '', seasonId: bestSeason ? bestSeason.id : null });
                 }
             } catch (e) {}
         }
-        if (scored.length === 0) {
-            return { id: String(posts[0].id), title: '' };
+        scored.sort(function (a, b) { return b.score - a.score; });
+        if (scored.length === 0 && posts.length > 0) {
+            return [{ id: String(posts[0].id), score: 0, title: '', seasonId: null }];
         }
-        scored.sort(function(a, b) { return b.score - a.score; });
+        return scored;
+    } catch (e) {}
+    return [];
+}
 
-        // With an absolute episode number, prefer the entry whose KYOTO
-        // episode index actually contains it (fixes S1-vs-S2 mixups).
-        if (absEp) {
-            for (var s = 0; s < Math.min(scored.length, 2); s++) {
-                try {
-                    var idx = await fetchKyotoIndex(scored[s].id);
-                    if (idx) {
-                        for (var e = 0; e < idx.epsList.length; e++) {
-                            if (String(idx.epsList[e].number) === String(absEp)) {
-                                return scored[s];
-                            }
+/**
+ * Selects the KYOTO season that matches the wanted meta (season number,
+ * absolute episode number via cumulative counts) and the target episode.
+ * Returns { season, targetEp } or null.
+ */
+function pickSeason(seasons, meta, targetEp) {
+    if (seasons.length === 0) return null;
+    // Single season: nothing to decide.
+    if (seasons.length === 1) {
+        return { season: seasons[0], targetEp: meta.absEp ? (meta.absEp - (meta.absEp <= seasons[0].episodes ? 0 : 0)) : targetEp };
+    }
+    // Prefer exact season number match.
+    if (meta.season) {
+        for (var i = 0; i < seasons.length; i++) {
+            if (seasons[i].number === meta.season) {
+                var chosen = seasons[i];
+                var rel = targetEp;
+                if (meta.absEp) {
+                    // Map the absolute number onto this season when it falls
+                    // inside its (approximate) range: sum previous seasons.
+                    var cum = 0;
+                    for (var j = 0; j < seasons.length; j++) {
+                        if (seasons[j].number < chosen.number && seasons[j].episodes) {
+                            cum += seasons[j].episodes;
                         }
                     }
-                } catch (e) {}
+                    if (meta.absEp > cum) rel = meta.absEp - cum;
+                }
+                return { season: chosen, targetEp: rel };
             }
         }
-        return scored[0];
-    } catch (e) {}
+    }
+    // Absolute episode mapping across seasons via cumulative counts.
+    if (meta.absEp) {
+        var seasonsSorted = seasons.slice().sort(function (a, b) { return a.number - b.number; });
+        var cum2 = 0;
+        for (var k = 0; k < seasonsSorted.length; k++) {
+            var cnt = seasonsSorted[k].episodes || 0;
+            if (meta.absEp > cum2 && meta.absEp <= cum2 + cnt) {
+                return { season: seasonsSorted[k], targetEp: meta.absEp - cum2 };
+            }
+            cum2 += cnt;
+        }
+        // Fallback: last season holding the absolute range.
+        var last = seasonsSorted[seasonsSorted.length - 1];
+        return { season: last, targetEp: meta.absEp };
+    }
+    // Fall back to the "current"/first season.
+    for (var c = 0; c < seasons.length; c++) {
+        if (seasons[c].current) return { season: seasons[c], targetEp: targetEp };
+    }
+    return { season: seasons[0], targetEp: targetEp };
+}
+
+/**
+ * Requests the direct HLS master link for (seriesId, serverId).
+ */
+async function fetchStream(seriesId, serverId) {
+    var data = await kyotoPost('/stream', { id: String(seriesId), server: String(serverId) });
+    if (data && data.link) return String(data.link);
     return null;
 }
 
@@ -330,105 +644,111 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                 return [];
             }
             console.log('[anilab] Searching AniLab catalog for: ' + meta.title);
-            var hit = await searchAniLab(meta.title, meta.season, meta.absEp);
-            if (!hit) {
+            var hits = await searchAniLab(meta.title, meta.season, meta.absEp);
+            if (hits.length === 0) {
                 // Retry once with the franchise-cleaned title (strips "Season 2", years, ...).
                 var cleaned = cleanTitle(meta.title);
                 if (cleaned && cleaned !== meta.title) {
                     console.log('[anilab] Retrying search with cleaned title: ' + cleaned);
-                    hit = await searchAniLab(cleaned, meta.season, meta.absEp);
+                    hits = await searchAniLab(cleaned, meta.season, meta.absEp);
                 }
             }
-            if (!hit) {
+            if (hits.length === 0) {
                 console.log('[anilab] No AniLab catalog hit for ' + meta.title);
                 return [];
             }
-            anilabId = hit.id;
-            if (hit.title) anilabTitle = hit.title;
+            anilabId = hits[0].id;
         }
         console.log('[anilab] AniLab id=' + anilabId + (anilabTitle ? ' (' + anilabTitle + ')' : ''));
 
-        // 2. KYOTO v4 post -> episode index URL + server URL templates.
-        var index = await fetchKyotoIndex(anilabId);
-        if (!index || index.epsList.length === 0) {
-            console.log('[anilab] KYOTO post/episode lookup failed for ' + anilabId);
+        // 2. KYOTO seasons for the catalog id, then pick the matching season.
+        var seasons = await fetchSeasons(anilabId);
+        if (seasons.length === 0) {
+            console.log('[anilab] No seasons for id ' + anilabId);
             return [];
         }
-        var post = index.post;
-        var epsList = index.epsList;
-        if (post.update) {
-            console.log('[anilab] KYOTO flags update=true; continuing anyway');
-        }
+        console.log('[anilab] seasons: ' + seasons.map(function (s) { return '#' + s.number + ' ' + s.title + (s.current ? ' (current)' : ''); }).join(' | '));
 
-        var candidates = [];
-        if (meta.absEp) candidates.push(String(meta.absEp));
-        candidates.push(String(targetEp));
-        var uniqueCandidates = [];
-        for (var c = 0; c < candidates.length; c++) {
-            if (uniqueCandidates.indexOf(candidates[c]) === -1) {
-                uniqueCandidates.push(candidates[c]);
-            }
+        var picked = pickSeason(seasons, meta, targetEp);
+        if (!picked) {
+            console.log('[anilab] Could not pick a season for ' + anilabId);
+            return [];
         }
-        console.log('[anilab] Looking for episode candidates: ' + uniqueCandidates.join(','));
+        var seasonObj = picked.season;
+        var seasonEp = picked.targetEp;
+        if (isNaN(seasonEp) || seasonEp < 1) seasonEp = targetEp;
+        console.log('[anilab] Picked season #' + seasonObj.number + ' "' + seasonObj.title + '" id=' + seasonObj.id + ' target ep ' + seasonEp);
+
+        // 3. Episodes (inline servers) -> match by number, then name.
+        var epsList = await fetchEpisodes(seasonObj.id);
+        if (!epsList || epsList.length === 0) {
+            console.log('[anilab] No episodes for season ' + seasonObj.id);
+            return [];
+        }
 
         var epObj = null;
         var matchedNum = '';
-        for (var ci = 0; ci < uniqueCandidates.length && !epObj; ci++) {
+        var candidates = [];
+        // Prefer the explicit season-relative episode (what the app's UI shows
+        // the user); ani.zip absolute numbers come from a merged-TVDB ordering
+        // that can disagree wildly with per-season layouts, so they are only a
+        // last-resort candidate.
+        candidates.push(String(seasonEp));
+        if (String(targetEp) !== String(seasonEp)) candidates.push(String(targetEp));
+        if (meta.absEp) {
+            var absStr = String(Math.max(1, meta.absEp));
+            if (candidates.indexOf(absStr) === -1) candidates.push(absStr);
+        }
+        for (var ci = 0; ci < candidates.length && !epObj; ci++) {
             for (var ei = 0; ei < epsList.length; ei++) {
-                if (String(epsList[ei].number) === uniqueCandidates[ci]) {
+                if (String(epsList[ei].number) === candidates[ci]) {
                     epObj = epsList[ei];
-                    matchedNum = uniqueCandidates[ci];
+                    matchedNum = candidates[ci];
                     break;
                 }
             }
         }
+        // Name-based fallback: "Episode 12"
         if (!epObj) {
-            console.log('[anilab] Episode ' + targetEp + ' not in anidb index (' + epsList.length + ' eps)');
+            for (var nf = 0; nf < epsList.length && !epObj; nf++) {
+                var nm = epsList[nf].name; // e.g. "Episode 12"
+                if (nm && new RegExp('\\b' + targetEp + '\\b').test(nm)) {
+                    epObj = epsList[nf];
+                    matchedNum = String(targetEp);
+                }
+            }
+        }
+        if (!epObj) {
+            console.log('[anilab] Episode ' + seasonEp + ' not in season index (' + epsList.length + ' eps)');
             return [];
         }
-        console.log('[anilab] Matched episode: ' + JSON.stringify(epObj));
+        console.log('[anilab] Matched episode: ' + JSON.stringify(epObj).slice(0, 200));
 
-        // 4. Servers for the episode -> prefer configured audio, SUB first.
-        var serversUrl = String(post.servers).split('%id%').join(String(epObj.id));
-        var srvData = await getJson(serversUrl);
-        var srvList = (srvData && srvData.list) ? srvData.list : [];
-        if (srvList.length === 0) {
-            console.log('[anilab] No servers for episode ' + epObj.id);
+        if (epObj.servers.length === 0) {
+            console.log('[anilab] Episode has no servers');
             return [];
         }
 
+        // 4. Order servers by audio preference, direct links per server.
         var audioPref = getAudioPref();
         var wantLang = audioPref === 'dub' ? 'dub' : 'sub';
         var preferred = [];
         var others = [];
-        for (var si = 0; si < srvList.length; si++) {
-            var lang = String(srvList[si].lang || '').toLowerCase();
-            if (lang === wantLang || (wantLang === 'sub' && (lang === 'sub' || lang === 'jpn'))) {
-                preferred.push(srvList[si]);
+        for (var si = 0; si < epObj.servers.length; si++) {
+            var lang = String(epObj.servers[si].lang || '').toLowerCase();
+            if (lang === wantLang) {
+                preferred.push(epObj.servers[si]);
             } else {
-                others.push(srvList[si]);
+                others.push(epObj.servers[si]);
             }
         }
         var orderedServers = preferred.concat(others);
 
-        // 5. iframe per server -> direct xlsbox HLS link (dedupe; servers often share one).
-        var iframeHeaders = { 'User-Agent': UA, 'Accept': 'application/json' };
-        var iframeTpl = post.server && post.server.url ? String(post.server.url) : '';
-        var tplHeaders = (post.server && post.server.headers) ? post.server.headers : [];
-        for (var hi = 0; hi < tplHeaders.length; hi++) {
-            if (tplHeaders[hi] && tplHeaders[hi][0] && tplHeaders[hi][1]) {
-                iframeHeaders[tplHeaders[hi][0]] = tplHeaders[hi][1];
-            }
-        }
-
         var masterLinks = [];
         var seenLinks = {};
-        for (var sj = 0; sj < orderedServers.length; sj++) {
+        for (var sj = 0; sj < orderedServers.length && masterLinks.length < 3; sj++) {
             try {
-                var iframeUrl = iframeTpl.split('%id%').join(String(orderedServers[sj].id));
-                if (!iframeUrl) continue;
-                var iframeData = await getJson(iframeUrl, iframeHeaders);
-                var link = iframeData && iframeData.link ? String(iframeData.link) : '';
+                var link = await fetchStream(seasonObj.id, orderedServers[sj].id);
                 if (!link || seenLinks[link]) continue;
                 // Only direct media links are playable here; HTML embed pages
                 // need KYOTO's WebView scraper (out of scope for this provider).
@@ -439,7 +759,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                 seenLinks[link] = true;
                 masterLinks.push({ link: link, server: orderedServers[sj] });
             } catch (err) {
-                console.warn('[anilab] iframe resolve failed: ' + (err && err.message));
+                console.warn('[anilab] stream resolve failed: ' + (err && err.message));
             }
         }
 
@@ -448,7 +768,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
             return [];
         }
 
-        // 6. Expand master playlists into per-quality HLS streams.
+        // 5. Expand master playlists into per-quality HLS streams.
         var streams = [];
         for (var mk = 0; mk < masterLinks.length; mk++) {
             var item = masterLinks[mk];
