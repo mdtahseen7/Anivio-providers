@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.9.9",
+  "version": "1.10.0",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -185,7 +185,7 @@
         "mp4"
       ],
       "supportsExternalPlayer": true,
-      "logo": "https://www.animegg.org/favicon.ico"
+      "logo": "https://cdn.jsdelivr.net/gh/mdtahseen7/Anivio-providers@main/icons/animegg.png"
     },
     {
       "id": "hianime",
@@ -237,7 +237,7 @@
         "hls"
       ],
       "supportsExternalPlayer": true,
-      "logo": "https://anime.uniquestream.net/images/site/logo.png"
+      "logo": "https://cdn.jsdelivr.net/gh/mdtahseen7/Anivio-providers@main/icons/uniquestream.png"
     },
     {
       "id": "anineko",
@@ -485,7 +485,7 @@
       "description": "AnimeParadise provider with direct HLS streams and subtitle tracks.",
       "version": "1.0.0",
       "author": "mdtahseen7",
-      "logo": "https://animeparadise.moe/favicon.ico",
+      "logo": "https://cdn.jsdelivr.net/gh/mdtahseen7/Anivio-providers@main/icons/animeparadise.png",
       "supportedTypes": [
         "movie",
         "tv"
@@ -564,7 +564,7 @@
       "description": "Nyaa direct torrent provider searching nyaa.si for high-seed anime torrents.",
       "version": "1.0.0",
       "author": "mdtahseen7",
-      "logo": "https://nyaa.si/static/favicon.png",
+      "logo": "https://cdn.jsdelivr.net/gh/mdtahseen7/Anivio-providers@main/icons/nyaa.png",
       "supportedTypes": [
         "movie",
         "tv"
@@ -590,7 +590,7 @@
       "description": "Anixo stream relay (MegaPlay/AniNeko/Zoko) with intro/outro skip markers and subtitles.",
       "version": "1.0.0",
       "author": "mdtahseen7",
-      "logo": "https://anixo.buzz/favicon.ico",
+      "logo": "https://cdn.jsdelivr.net/gh/mdtahseen7/Anivio-providers@main/icons/anixo.png",
       "supportedTypes": [
         "movie",
         "tv"
@@ -616,7 +616,7 @@
       "description": "Senshi anime provider with decrypted 1080p HLS streams, dual-audio tracks (Japanese & English), and subtitle tracks via Senshi.to.",
       "version": "1.1.0",
       "author": "mdtahseen7",
-      "logo": "https://senshi.to/assets/favicon-D8AM2szz.ico",
+      "logo": "https://cdn.jsdelivr.net/gh/mdtahseen7/Anivio-providers@main/icons/senshi.png",
       "supportedTypes": [
         "movie",
         "tv"
@@ -748,7 +748,7 @@
       "description": "Standalone KotoTV stream provider with decrypted HLS streams via custom XOR obfuscation and dual-audio (Sub & Dub).",
       "version": "1.0.0",
       "author": "mdtahseen7",
-      "logo": "https://kototv.to/uploads/branding/favicon.png",
+      "logo": "https://cdn.jsdelivr.net/gh/mdtahseen7/Anivio-providers@main/icons/kototv.png",
       "supportedTypes": [
         "movie",
         "tv"
@@ -818,7 +818,7 @@
         "hls"
       ],
       "supportsExternalPlayer": true,
-      "logo": "https://animepahe.pw/favicon.ico",
+      "logo": "https://cdn.jsdelivr.net/gh/mdtahseen7/Anivio-providers@main/icons/animepahe.png",
       "needsCaptcha": true,
       "domains": [
         "animepahe.pw",
@@ -875,7 +875,7 @@
         "hls"
       ],
       "supportsExternalPlayer": true,
-      "logo": "https://www.anilab2.app/assets/logo.svg"
+      "logo": "https://cdn.jsdelivr.net/gh/mdtahseen7/Anivio-providers@main/icons/anilab.png"
     },
     {
       "id": "animelok",
@@ -929,7 +929,7 @@
         "hls"
       ],
       "supportsExternalPlayer": true,
-      "logo": "https://anihub.co.in/favicon.ico"
+      "logo": "https://cdn.jsdelivr.net/gh/mdtahseen7/Anivio-providers@main/icons/anihub.png"
     },
     {
       "id": "kisskh",
