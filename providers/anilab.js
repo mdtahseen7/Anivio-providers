@@ -10,7 +10,7 @@
  *   seasons -> episodes -> stream -> direct xlsbox HLS
  * - Multi-quality variant expansion from the master m3u8 playlist
  *
- * KYOTO API details recovered by RE of the AniLab APK (v131):
+ * KYOTO API details recovered from KYOTO Player 1.3.2 (version code 132):
  * - Base URL: https://api.kyotoplayer.com/ (all endpoints are POST,
  *   x-www-form-urlencoded; /update is a plain POST)
  * - Endpoints: seasons{id}, episodes{id,token}, servers{id,episode},
@@ -18,11 +18,11 @@
  * - Requests carry anti-bot headers and a native HMAC signature:
  *     ts        = unix epoch seconds
  *     nonce     = 16 random bytes, base64url, padding stripped
- *     message   = "METHOD\n<path>\n<sha256hex(body)>\n<ts>\n<nonce>\n131"
+ *     message   = "METHOD\n<path>\n<sha256hex(body)>\n<ts>\n<nonce>\n132"
  *     sig       = HMAC-SHA256(T1, message).hex()
- *   where T1 = HMAC-SHA256(K1, sha256(APK signingBlock blob)) is a constant
- *   baked into libkyoto.so (extracted by emulating nativeSign under unicorn),
- *   and K1 = 904e4bec7b2f8f85fa83cb4c8cd86bfb39d960cb4abaee5251e597111889a47b.
+ *   where T1 = HMAC-SHA256(K1, sha256(APK signing certificate DER)). K1 is
+ *   obfuscated in libkyoto.so; the certificate digest is also sent through
+ *   X-Kyoto-Cert. Build 132 rotated K1 while retaining the Play certificate.
  * - The server occasionally round-robins to backends with skewed validation;
  *   the app itself retries on 401 with a fresh ts/nonce, we do the same.
  */
@@ -31,16 +31,16 @@ var ANILAB_API = 'https://anilab2.amdapi.click/api';
 var KYOTO_API = 'https://api.kyotoplayer.com';
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var UA = 'okhttp/4.12.0';
-var APP_VERSION = '131';
+var APP_VERSION = '132';
 
 /* --- signing constants (see header comment) ---------------------------- */
-var K1_HEX = '904e4bec7b2f8f85fa83cb4c8cd86bfb39d960cb4abaee5251e597111889a47b';
-var BLOB_HEX = '482a900b2906766b2e8d3cf19fcf6d06d0b6c9569cb6305c9c43200a8e20979e';
+var K1_HEX = '9589ba06efeb990bafe302235854766f4d5b9cabcb57ad6ad6bb41cd7b6a8408';
+var CERT_HEX = '482a900b2906766b2e8d3cf19fcf6d06d0b6c9569cb6305c9c43200a8e20979e';
 var _T1_hex = null;
-/** HMAC-SHA256(K1, sha256(APK signing block blob)) — computed lazily. */
+/** HMAC-SHA256(K1, SHA-256 signing-certificate digest) — computed lazily. */
 function T1hex() {
     if (!_T1_hex) {
-        _T1_hex = bytesToHex(hmacSHA256(hexToBytes(K1_HEX), hexToBytes(BLOB_HEX)));
+        _T1_hex = bytesToHex(hmacSHA256(hexToBytes(K1_HEX), hexToBytes(CERT_HEX)));
     }
     return _T1_hex;
 }
@@ -222,6 +222,7 @@ function buildKyotoRequest(path, params) {
         'X-Kyoto-Ts': ts,
         'X-Kyoto-Nonce': nonce,
         'X-Kyoto-Sig': sig,
+        'X-Kyoto-Cert': CERT_HEX,
         'Content-Type': 'application/x-www-form-urlencoded'
     };
     return { url: KYOTO_API + path, body: body, headers: headers };

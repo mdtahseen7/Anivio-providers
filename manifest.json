@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -855,7 +855,7 @@
       "id": "anilab",
       "name": "AniLab",
       "description": "AniLab provider via AniLab catalog + KYOTO backend (api.kyotoplayer.com) with Sub/Dub servers and multi-quality HLS streams.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "mdtahseen7",
       "supportedTypes": [
         "movie",
