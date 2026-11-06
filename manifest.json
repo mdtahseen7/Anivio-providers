@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.10.1",
+  "version": "1.11.0",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -294,9 +294,9 @@
     {
       "id": "kickassanime",
       "name": "KickAssAnime",
-      "description": "KickAssAnime provider with direct 1080p HLS stream extraction via CatStream with subtitles.",
-      "version": "1.1.0",
-      "author": "mdtahseen7",
+      "description": "Ported from Saikou: KAA paginated episodes, SUB/DUB locales, Cat/Vid/Duck/Bird servers, HLS/DASH, and subtitles.",
+      "version": "2.0.0",
+      "author": "mdtahseen7 + Saikou contributors",
       "logo": "https://kaa.lt/favicon.ico",
       "supportedTypes": [
         "movie",
@@ -306,14 +306,16 @@
       "enabled": true,
       "hasSettings": true,
       "formats": [
-        "m3u8"
+        "m3u8",
+        "mpd"
       ],
       "contentLanguage": [
         "ja",
         "en"
       ],
       "supportedFormats": [
-        "hls"
+        "hls",
+        "dash"
       ],
       "supportsExternalPlayer": true
     },

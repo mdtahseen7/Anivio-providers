@@ -34,7 +34,7 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 | **AniBD** | Anime | HLS (m3u8) | Multi-server stream resolution and fallback support for anime series & movies | ✅ Active |
 | **MegaPlay** | Anime | HLS (m3u8) | High-speed SUB and DUB streams with multi-audio and subtitle tracks | ✅ Active |
 | **Torrentio** | Anime / Movies | Torrent (P2P) | Saikou-style torrent engine, AniZip ID mapping, Nyaa/TokyoTosho trackers, infoHash, seeders (👤), sizes (💾), Real-Debrid support | ✅ Active |
-| **KickAssAnime** | Anime | HLS (m3u8) | Direct 1080p master HLS streams via CatStream Astro player with embedded subtitles | ✅ Active |
+| **KickAssAnime** | Anime | HLS / DASH | Ported from [Saikou's KAA provider](https://github.com/middlegear/Saikou/commit/9010ae6da96bb2f09bce2c625dd861219730edbf) (GPL-3.0): paginated episodes, SUB/DUB locales, Cat/Vid/Duck/Bird servers, validated manifests, and multilingual subtitles | ✅ Active |
 | **HiAnime** | Anime | HLS (m3u8) | ZokoAnime 1080p HLS streams, Sub and Dub audio, WebVTT subtitles, and intro/outro skip metadata | ✅ Active |
 | **KissKH** | Anime / Drama | HLS / MP4 | Direct HD video sources and multi-language subtitles via KissKH API | ✅ Active |
 | **MeguAnime** | Anime | HLS (m3u8) | Native AniList IDs & unified proxy API (Miruro) for multi-source HLS streams | ✅ Active |
