@@ -11,9 +11,39 @@
  * - Supported IDs: anilist:<id>, mal:<id>, numeric TMDB id, and "603" (Anivio Test button)
  */
 
-var ANIKOTO_BASE = 'https://anikototv.to';
+var ANIKOTO_DOMAINS = [
+    'https://anikototv.bz',   // Recommended
+    'https://anikototv.se',   // Mirror
+    'https://anikoto.me',     // Mirror
+    'https://anikoto.net',    // Mirror
+    'https://anikoto.cz'      // Mirror
+];
+var ANIKOTO_BASE = ANIKOTO_DOMAINS[0];
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+/**
+ * Probes each mirror domain until one responds successfully, then sets ANIKOTO_BASE.
+ * Called once at the start of getStreams to ensure the active domain is reachable.
+ */
+async function probeActiveDomain() {
+    for (var i = 0; i < ANIKOTO_DOMAINS.length; i++) {
+        try {
+            var res = await fetch(ANIKOTO_DOMAINS[i] + '/', {
+                method: 'HEAD',
+                headers: { 'User-Agent': UA }
+            });
+            if (res.ok || res.status === 301 || res.status === 302 || res.status === 303) {
+                ANIKOTO_BASE = ANIKOTO_DOMAINS[i];
+                console.log('[anikoto] Active domain: ' + ANIKOTO_BASE);
+                return;
+            }
+        } catch (e) {}
+    }
+    // fallback to recommended if all probes fail
+    ANIKOTO_BASE = ANIKOTO_DOMAINS[0];
+    console.log('[anikoto] All probes failed, using default: ' + ANIKOTO_BASE);
+}
 
 function getProxyBase() {
     return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url)
@@ -376,7 +406,7 @@ async function searchAnikoto(query) {
     });
     if (!res.ok) return [];
     var html = await res.text();
-    var re = /<a\s+class="name d-title"\s+href="https:\/\/anikototv\.to\/watch\/([^"/]+)(?:\/ep-\d+)?"[^>]*data-jp="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g;
+    var re = /<a\s+class="name d-title"\s+href="https?:\/\/[^"\/]+\/watch\/([^"/]+)(?:\/ep-\d+)?"[^>]*data-jp="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g;
     var m;
     var candidates = [];
     var seen = new Set();
@@ -444,6 +474,7 @@ function readEpTagMal(epHtml, targetEp) {
 async function getStreams(tmdbId, mediaType, season, episode) {
     try {
         console.log('[anikoto] getStreams called: id=' + tmdbId + ' season=' + season + ' ep=' + episode);
+        await probeActiveDomain();
         var meta = await resolveMetadata(tmdbId);
 
         var targetSeason = parseInt(season != null ? season : 1, 10);
