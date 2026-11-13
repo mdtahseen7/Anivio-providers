@@ -19,7 +19,7 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 
 ---
 
-## Available Providers (43 Active)
+## Available Providers (44 Active)
 
 | Provider | Content Type | Stream Format | Highlights & Features | Status |
 |---|---|---|---|:---:|
@@ -63,6 +63,7 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 | **Hentaigasm** | Adult / Hentai | MP4 | Direct high-speed JWPlayer video sources with range-request support | ✅ Active |
 | **WatchHentai** | Adult / Hentai | MP4 / HLS | Direct 1080p video streams with XOR video URL decryption | ✅ Active |
 | **HahoMoe** | Adult / Hentai | MP4 | Multi-quality direct MP4 streams | ✅ Active |
+| **Pahenime** | Anime | HLS (m3u8) | Multi-server, multi-audio (Japanese/English) 1080p HLS via pahenime.com. Image-disguised HLS is stripped by the Luna `/hls` proxy (no subtitles on source) | ✅ Active |
 
 ---
 
@@ -108,6 +109,8 @@ Anivio-providers/
 │   ├── mmani.js             # Standalone MMani (Anime BD) provider
 │   ├── nyaa.js              # Nyaa direct torrent provider
 │   ├── oppaistream.js       # OppaiStream provider
+│   ├── pahenime.js          # Pahenime multi-audio provider (Luna /hls strip proxy)
+│   ├── pahenime.js          # Pahenime multi-audio provider (Luna /hls strip proxy)
 │   ├── reanime.js           # ReAnime FlixCloud provider
 │   ├── senshi.js            # Senshi anime provider
 │   ├── torrentio.js         # Torrentio (P2P / Stremio) provider

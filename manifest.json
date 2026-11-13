@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.11.1",
+  "version": "1.12.0",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -1134,6 +1134,32 @@
         "tv"
       ],
       "filename": "providers/anifam.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "pahenime",
+      "name": "Pahenime",
+      "description": "Pahenime provider with multi-server, multi-audio (Japanese/English) 1080p HLS streams. Playback flows through the Luna /hls strip proxy (no subtitles available on the source).",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://pahenime.com/favicon.ico",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/pahenime.js",
       "enabled": true,
       "hasSettings": true,
       "formats": [
