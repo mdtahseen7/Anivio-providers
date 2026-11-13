@@ -19,7 +19,7 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 
 ---
 
-## Available Providers (44 Active)
+## Available Providers (43 Active)
 
 | Provider | Content Type | Stream Format | Highlights & Features | Status |
 |---|---|---|---|:---:|
@@ -37,7 +37,6 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 | **KickAssAnime** | Anime | HLS / DASH | Ported from [Saikou's KAA provider](https://github.com/middlegear/Saikou/commit/9010ae6da96bb2f09bce2c625dd861219730edbf) (GPL-3.0): paginated episodes, SUB/DUB locales, Cat/Vid/Duck/Bird servers, validated manifests, and multilingual subtitles | ✅ Active |
 | **HiAnime** | Anime | HLS (m3u8) | ZokoAnime 1080p HLS streams, Sub and Dub audio, WebVTT subtitles, and intro/outro skip metadata | ✅ Active |
 | **KissKH** | Anime / Drama | HLS / MP4 | Direct HD video sources and multi-language subtitles via KissKH API | ✅ Active |
-| **MeguAnime** | Anime | HLS (m3u8) | Native AniList IDs & unified proxy API (Miruro) for multi-source HLS streams | ✅ Active |
 | **AnimePahe** | Anime | HLS (m3u8) | Direct Kwik HLS stream extraction with Cloudflare challenge persistence | ✅ Active |
 | **MKissa** | Anime | HLS / MP4 | Fast SUB & DUB streams via Anivexa API with configurable mirror URL | ✅ Active |
 | **Anikoto** | Anime | HLS (m3u8) | Multi-server extraction (Vidstream-2, HD-1), SUB & DUB, multi-language subtitles | ✅ Active |
@@ -104,7 +103,6 @@ Anivio-providers/
 │   ├── kickassanime.js      # KickAssAnime provider
 │   ├── kototv.js            # KotoTV XOR provider
 │   ├── megaplay.js          # MegaPlay provider
-│   ├── meguanime.js         # MeguAnime Miruro provider
 │   ├── mkissa.js            # MKissa provider
 │   ├── mmani.js             # Standalone MMani (Anime BD) provider
 │   ├── nyaa.js              # Nyaa direct torrent provider
