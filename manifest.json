@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -1172,6 +1172,32 @@
         "ml",
         "bn",
         "mr",
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "hls"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "kotokai",
+      "name": "Kotokai",
+      "description": "Kotokai (AnimeKaiTV) provider with automatic multi-mirror failover (animekaitv.to, anikaitv.to, animekai.se, anikai.se), Sub & Dub audio, and multilingual subtitles.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://animekaitv.to/favicon.ico",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/kotokai.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "m3u8"
+      ],
+      "contentLanguage": [
         "ja",
         "en"
       ],
