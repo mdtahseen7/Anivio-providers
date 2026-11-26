@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -1229,6 +1229,60 @@
       ],
       "supportedFormats": [
         "torrent"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "hentaimama",
+      "name": "HentaiMama",
+      "description": "HentaiMama 18+ provider with direct 1080p, 720p, and 480p MP4/HLS streams via multi-mirror AJAX player extraction.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://hentaimama.io/favicon.ico",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/hentaimama.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "mp4",
+        "m3u8"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "mp4",
+        "hls"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "hstream",
+      "name": "Hstream",
+      "description": "Hstream 18+ provider with multi-CDN 720p direct MP4 streams and English ASS subtitle tracks.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://hstream.moe/favicon.ico",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/hstream.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "mp4"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "mp4"
       ],
       "supportsExternalPlayer": true
     }
