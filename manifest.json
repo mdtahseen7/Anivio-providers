@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -1203,6 +1203,32 @@
       ],
       "supportedFormats": [
         "hls"
+      ],
+      "supportsExternalPlayer": true
+    },
+    {
+      "id": "subsplease",
+      "name": "SubsPlease",
+      "description": "Official SubsPlease simulcast torrent provider with 1080p/720p/480p magnet streams, exact file sizes, season matching, and optional Debrid resolution.",
+      "version": "1.0.0",
+      "author": "mdtahseen7",
+      "logo": "https://subsplease.org/favicon.ico",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/subsplease.js",
+      "enabled": true,
+      "hasSettings": true,
+      "formats": [
+        "torrent"
+      ],
+      "contentLanguage": [
+        "ja",
+        "en"
+      ],
+      "supportedFormats": [
+        "torrent"
       ],
       "supportsExternalPlayer": true
     }
