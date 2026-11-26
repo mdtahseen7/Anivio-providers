@@ -19,12 +19,18 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 
 ---
 
-## Available Providers (43 Active)
+## Available Providers (48 Active)
 
 | Provider | Content Type | Stream Format | Highlights & Features | Status |
 |---|---|---|---|:---:|
+| **AnimeWorld India** | Anime (Multi-Audio) | HLS (m3u8) | WatchAnimeWorld India 1080p multi-audio HLS (Hindi, Tamil, Telugu, Malayalam, Bengali, Marathi, English, Japanese) with subtitles | ✅ Active |
+| **AniXo Hindi** | Anime (Hindi Dub) | MP4 / HLS | Authentic 1080p Full HD Hindi Dubbed anime series & movies with pure JS XOR decryption | ✅ Active |
 | **AnimeLok (Hindi Dub)** | Anime | HLS (m3u8) | Native Multi-Audio HLS (Hindi, Tamil, Telugu, English, Japanese) up to 1080p via direct JSON API | ✅ Active |
 | **AniHub (Hindi Dub)** | Anime | HLS (m3u8) | Multi-Audio HLS (Hindi, Tamil, Telugu, English, Japanese) up to 1080p via Ravok extractor | ✅ Active |
+| **ANV** | Anime | HLS (m3u8) | Multi-server (Orange, Pear, Banana) Sub & Dub adaptive HLS streams with multilingual WebVTT subtitles | ✅ Active |
+| **AniFam** | Anime | HLS (m3u8) | Direct 1080p AniFam CDN, HD-1 MegaPlay resolution, Sub & Dub audio, and multilingual subtitles | ✅ Active |
+| **Kotokai** | Anime | HLS (m3u8) | AnimeKaiTV provider with automatic multi-mirror failover (`animekaitv.to`, `anikaitv.to`, `animekai.se`, `anikai.se`), Sub & Dub | ✅ Active |
+| **SubsPlease** | Anime | Torrent (P2P / Debrid) | Official SubsPlease simulcast JSON releases (`1080p`/`720p`/`480p`) with file sizes and optional Debrid resolution | ✅ Active |
 | **ReAnime** | Anime | HLS (m3u8) | Decrypted FlixCloud HD-1 and HD-2 HLS streams, Sub and Dub audio, and embedded subtitles | ✅ Active |
 | **Ani.pm** | Anime | HLS (m3u8) | High-speed Settlar bootstrap and session resolver supporting Sub & Dub playback | ✅ Active |
 | **AnimeNoSub** | Anime | HLS (m3u8) | Direct Vidmoly 1080p HLS extraction and multi-server video embeds (FileMoon, Byse, Vtube) | ✅ Active |
@@ -39,7 +45,7 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 | **KissKH** | Anime / Drama | HLS / MP4 | Direct HD video sources and multi-language subtitles via KissKH API | ✅ Active |
 | **AnimePahe** | Anime | HLS (m3u8) | Direct Kwik HLS stream extraction with Cloudflare challenge persistence | ✅ Active |
 | **MKissa** | Anime | HLS / MP4 | Fast SUB & DUB streams via Anivexa API with configurable mirror URL | ✅ Active |
-| **Anikoto** | Anime | HLS (m3u8) | Multi-server extraction (Vidstream-2, HD-1), SUB & DUB, multi-language subtitles | ✅ Active |
+| **Anikoto** | Anime | HLS (m3u8) | Multi-mirror fallback (`anikototv.bz`, `se`, `me`, `net`, `cz`), HD-1/Vidstream-2, SUB & DUB, subtitles | ✅ Active |
 | **AniWaves** | Anime | HLS / MP4 | Vidplay, DatSaV, MyCloud server resolution with subtitle tracks | ✅ Active |
 | **AniWave** | Anime | HLS (m3u8) | Sub and Dub HLS streams via MegaPlay extraction and multi-language subtitles | ✅ Active |
 | **AniZone** | Anime | HLS (m3u8) | Dual-audio (Japanese & English), episode library, multi-language subtitles | ✅ Active |
@@ -62,6 +68,8 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 | **Hentaigasm** | Adult / Hentai | MP4 | Direct high-speed JWPlayer video sources with range-request support | ✅ Active |
 | **WatchHentai** | Adult / Hentai | MP4 / HLS | Direct 1080p video streams with XOR video URL decryption | ✅ Active |
 | **HahoMoe** | Adult / Hentai | MP4 | Multi-quality direct MP4 streams | ✅ Active |
+| **HentaiMama** | Adult / Hentai | MP4 / HLS | Multi-mirror AJAX player extraction delivering direct 1080p, 720p, and 480p MP4/HLS streams | ✅ Active |
+| **Hstream** | Adult / Hentai | MP4 | Multi-CDN 720p direct MP4 streams with XSRF session handling and English ASS subtitles | ✅ Active |
 | **Pahenime** | Anime | HLS (m3u8) | Multi-server, multi-audio (Japanese/English) 1080p HLS via pahenime.com. Image-disguised HLS is stripped by the Luna `/hls` proxy (no subtitles on source) | ✅ Active |
 
 ---
@@ -70,37 +78,44 @@ All plugins execute natively inside Anivio's embedded **QuickJS** runtime with z
 
 ```
 Anivio-providers/
-├── manifest.json            # Repository manifest listing all 43 available providers
+├── manifest.json            # Repository manifest listing all 48 available providers
 ├── icons/                   # Local provider icon assets (PNG / ICO)
 ├── providers/
-│   ├── anifam.js            # AniFam anime provider (Sub & Dub, HD-1)
 │   ├── anibd.js             # AniBD anime provider
 │   ├── anichi.js            # AniChi provider
+│   ├── anifam.js            # AniFam anime provider (Sub & Dub, HD-1)
 │   ├── anihub.js            # AniHub (Hindi Dub) provider
 │   ├── anikage.js           # Anikage provider
-│   ├── anikoto.js           # Anikoto anime provider
+│   ├── anikoto.js           # Anikoto anime provider (multi-mirror)
 │   ├── anilab.js            # AniLab catalog + KYOTO/anidb provider
-│   ├── animelok.js          # AnimeLok (Hindi Dub) provider
 │   ├── animedunya.js        # AnimeDunya provider
-│   ├── animenosub.js        # AnimeNoSub provider
-│   ├── anipm.js             # Ani.pm Settlar provider
 │   ├── animegg.js           # AnimeGG provider
 │   ├── animeheaven.js       # Standalone AnimeHeaven provider
 │   ├── animekai.js          # Standalone AnimeKai provider
+│   ├── animelok.js          # AnimeLok (Hindi Dub) provider
+│   ├── animenosub.js        # AnimeNoSub provider
 │   ├── animeonsen.js        # AnimeOnsen DASH provider
 │   ├── animepahe.js         # AnimePahe Kwik provider
 │   ├── animeparadise.js     # AnimeParadise provider
+│   ├── animeworldindia.js   # WatchAnimeWorld India multi-audio HLS provider
 │   ├── anineko.js           # AniNeko anime provider
+│   ├── anipm.js             # Ani.pm Settlar provider
 │   ├── aniwatch.js          # Standalone AniWatch provider
 │   ├── aniwave.js           # AniWave provider
 │   ├── aniwaves.js          # AniWaves anime provider
 │   ├── anixo.js             # Anixo relay provider
+│   ├── anixohindi.js        # AniXo Hindi 1080p MP4 provider (XOR decryptor)
 │   ├── anizone.js           # AniZone anime provider
+│   ├── anv.js               # ANV multi-server HLS provider (Sub & Dub)
 │   ├── babastream.js        # Standalone BabaStream provider
 │   ├── hahomoe.js           # HahoMoe provider
 │   ├── hentaigasm.js        # Hentaigasm provider
+│   ├── hentaimama.js        # HentaiMama 18+ provider
 │   ├── hianime.js           # HiAnime provider
+│   ├── hstream.js           # Hstream 18+ MP4 + ASS subtitle provider
 │   ├── kickassanime.js      # KickAssAnime provider
+│   ├── kisskh.js            # KissKH drama & anime provider
+│   ├── kotokai.js           # Kotokai (AnimeKaiTV) multi-mirror provider
 │   ├── kototv.js            # KotoTV XOR provider
 │   ├── megaplay.js          # MegaPlay provider
 │   ├── mkissa.js            # MKissa provider
@@ -108,9 +123,9 @@ Anivio-providers/
 │   ├── nyaa.js              # Nyaa direct torrent provider
 │   ├── oppaistream.js       # OppaiStream provider
 │   ├── pahenime.js          # Pahenime multi-audio provider (Luna /hls strip proxy)
-│   ├── pahenime.js          # Pahenime multi-audio provider (Luna /hls strip proxy)
 │   ├── reanime.js           # ReAnime FlixCloud provider
 │   ├── senshi.js            # Senshi anime provider
+│   ├── subsplease.js        # SubsPlease official torrent & debrid provider
 │   ├── torrentio.js         # Torrentio (P2P / Stremio) provider
 │   ├── uniquestream.js      # AnimeStream (UniqueStream) provider
 │   └── watchhentai.js       # WatchHentai provider
