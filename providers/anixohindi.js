@@ -59,13 +59,13 @@ async function resolveAnimeMeta(rawId, season, episode) {
     } else if (classified.kind === 'mal') {
         queries.push('?mal_id=' + encodeURIComponent(classified.id));
     } else if (classified.kind === 'numeric') {
-        // Anivio anime browsing passes numeric AniList IDs, TMDB fallback
-        queries.push('?anilist_id=' + encodeURIComponent(classified.id));
+        // Anivio resolves IDs via TmdbService.ensureTmdbId first -> check TMDB before AniList
         queries.push('?themoviedb_id=' + encodeURIComponent(classified.id));
+        queries.push('?anilist_id=' + encodeURIComponent(classified.id));
     }
 
     var meta = {
-        anilistId: classified.kind === 'anilist' || classified.kind === 'numeric' ? classified.id : null,
+        anilistId: classified.kind === 'anilist' ? classified.id : null,
         malId: classified.kind === 'mal' ? classified.id : null,
         title: '',
         absEp: null,
@@ -84,7 +84,7 @@ async function resolveAnimeMeta(rawId, season, episode) {
                     if (data.mappings.mal_id) meta.malId = String(data.mappings.mal_id);
                 }
                 var titles = (data && data.titles) ? data.titles : {};
-                meta.title = titles.en || titles.ro || titles.ja || '';
+                meta.title = String(titles.en || titles['x-jat'] || titles.ro || titles.ja || '').replace(/[`’‘]/g, "'");
 
                 var targetEp = parseInt(episode || 1, 10);
                 var targetSeason = meta.season;

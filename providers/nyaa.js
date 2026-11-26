@@ -26,22 +26,58 @@ async function getMapping(rawId) {
         var r=await fetch(ANIZIP_ENDPOINT+'?'+q, {headers:{'User-Agent':UA,'Accept':'application/json'}});
         if (!r.ok) throw new Error();
         var d=await r.json();
-        if (d && d.titles) return {titleEn: d.titles.en || d.titles.ro || d.titles.ja || c.id, titleRom: d.titles.ro || d.titles.en || c.id};
+        if (d && d.titles) {
+            var rom = d.titles['x-jat'] || d.titles.ro || '';
+            var en = d.titles.en || rom || d.titles.ja || c.id;
+            return {
+                titleEn: String(en).replace(/[`’‘]/g, "'"),
+                titleRom: String(rom || en).replace(/[`’‘]/g, "'")
+            };
+        }
     } catch(e){}
     return {titleEn:c.id, titleRom:c.id};
 }
+function base32ToHex(b32) {
+    var alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    var clean = String(b32 || '').toUpperCase().replace(/=+$/, '');
+    if (/^[0-9A-F]{40}$/.test(clean)) return clean.toLowerCase();
+    if (clean.length !== 32) return null;
+    var bits = 0, value = 0, hex = '';
+    for (var i = 0; i < clean.length; i++) {
+        var idx = alphabet.indexOf(clean.charAt(i));
+        if (idx === -1) return null;
+        value = (value << 5) | idx;
+        bits += 5;
+        if (bits >= 8) {
+            bits -= 8;
+            var b = (value >>> bits) & 255;
+            hex += (b < 16 ? '0' : '') + b.toString(16);
+        }
+    }
+    return hex.length === 40 ? hex : null;
+}
+function normalizeMagnetAndHash(magnet) {
+    var raw = String(magnet || '').trim();
+    var m = raw.match(/xt=urn:btih:([A-Za-z0-9]+)/i);
+    if (!m || !m[1]) return { magnet: raw, infoHash: null };
+    var hex = /^[A-Fa-f0-9]{40}$/.test(m[1]) ? m[1].toLowerCase() : base32ToHex(m[1]);
+    if (!hex) return { magnet: raw, infoHash: null };
+    return { magnet: raw.replace(/xt=urn:btih:[A-Za-z0-9]+/i, 'xt=urn:btih:' + hex), infoHash: hex };
+}
 function extractTorrents(html) {
     var out=[];
-    var re=/<tr[^>]*>[\s\S]*?<a[^>]*href="\/view\/(\d+)"[^>]*>([^<]+)<\/a>[\s\S]*?<a[^>]*href="(magnet:[^"]+)"[^>]*>[\s\S]*?<td[^>]*class="text-center"[^>]*>\s*(\d+)\s*<\/td>[\s\S]*?<td[^>]*class="text-center"[^>]*>\s*([\d\.]+ [KMGT]i?B)\s*<\/td>/gi;
+    var re=/<tr[^>]*>[\s\S]*?<a[^>]*href="\/view\/(\d+)"[^>]*>([^<]+)<\/a>[\s\S]*?<a[^>]*href="(magnet:[^"]+)"[^>]*>[\s\S]*?<td[^>]*class="text-center"[^>]*>\s*([\d.]+\s*[KMGT]i?B)\s*<\/td>[\s\S]*?<td[^>]*class="text-center"[^>]*>[^<]*<\/td>\s*<td[^>]*class="text-center"[^>]*>\s*(\d+)\s*<\/td>/gi;
     var m;
     while((m=re.exec(html))!==null){
-        var id=m[1], name=m[2].trim(), magnet=m[3].replace(/&amp;/g,'&'), seeders=parseInt(m[4],10), size=m[5];
+        var id=m[1], name=m[2].replace(/&amp;/g,'&').trim(), rawMagnet=m[3].replace(/&amp;/g,'&'), size=m[4].trim(), seeders=parseInt(m[5],10);
+        var norm=normalizeMagnetAndHash(rawMagnet);
+        if(!norm.infoHash) continue;
         var quality='1080p';
         if (/2160p|4k/i.test(name)) quality='4k';
         else if (/1080p/i.test(name)) quality='1080p';
         else if (/720p/i.test(name)) quality='720p';
         else if (/480p/i.test(name)) quality='480p';
-        out.push({name:'Nyaa', title: name + (size?' • '+size:'' ) + (seeders?' • 👤 '+seeders:''), url: magnet, quality: quality, type:'torrent', seeders: seeders, size: size});
+        out.push({name:'Nyaa', title: name + (size?' • '+size:'' ) + (seeders?' • 👤 '+seeders:''), url: norm.magnet, quality: quality, type:'torrent', seeders: seeders, size: size, infoHash: norm.infoHash, headers: {}, subtitles: []});
         if (out.length>=8) break;
     }
     return out;

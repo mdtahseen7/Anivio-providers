@@ -61,18 +61,18 @@ async function resolveTitles(rawId) {
     var titles = [];
     function addTitle(t) {
         if (t && typeof t === 'string') {
-            var trimmed = t.trim();
+            var trimmed = t.replace(/[`’‘]/g, "'").trim();
             if (trimmed && titles.indexOf(trimmed) === -1) titles.push(trimmed);
         }
     }
 
-    // 1. Try AniZip
+    // 1. Try AniZip (check TMDB before AniList for bare numeric IDs passed by Anivio)
     var queries = [];
     if (c.kind === 'anilist') queries.push('?anilist_id=' + encodeURIComponent(c.id));
     else if (c.kind === 'mal') queries.push('?mal_id=' + encodeURIComponent(c.id));
     else if (c.kind === 'numeric') {
-        queries.push('?anilist_id=' + encodeURIComponent(c.id));
         queries.push('?themoviedb_id=' + encodeURIComponent(c.id));
+        queries.push('?anilist_id=' + encodeURIComponent(c.id));
     }
 
     for (var i = 0; i < queries.length; i++) {
@@ -83,6 +83,7 @@ async function resolveTitles(rawId) {
             if (res.ok) {
                 var data = await res.json();
                 if (data && data.titles) {
+                    addTitle(data.titles['x-jat']);
                     addTitle(data.titles.ro);
                     addTitle(data.titles.en);
                     addTitle(data.titles.ja);
@@ -174,7 +175,7 @@ function pickBestMatch(candidates, titles) {
             }
         }
     }
-    return bestScore >= 0.4 ? best : (candidates[0] || null);
+    return bestScore >= 0.35 ? best : null;
 }
 
 /**

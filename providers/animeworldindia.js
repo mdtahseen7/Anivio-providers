@@ -83,14 +83,15 @@ async function resolveAnimeMeta(rawId, season, episode) {
     } else if (c.kind === 'mal') {
         queries.push('?mal_id=' + encodeURIComponent(c.id));
     } else if (c.kind === 'numeric') {
-        queries.push('?anilist_id=' + encodeURIComponent(c.id));
+        // Anivio resolves IDs via TmdbService.ensureTmdbId first -> always check TMDB before AniList
         queries.push('?themoviedb_id=' + encodeURIComponent(c.id));
+        queries.push('?anilist_id=' + encodeURIComponent(c.id));
     }
 
     var meta = {
         titleEn: '',
         titleRom: '',
-        anilistId: c.kind === 'anilist' || c.kind === 'numeric' ? c.id : null,
+        anilistId: c.kind === 'anilist' ? c.id : null,
         season: parseInt(season != null ? season : 1, 10) || 1,
         absEp: null
     };
@@ -105,8 +106,10 @@ async function resolveAnimeMeta(rawId, season, episode) {
             if (res.ok) {
                 var data = await res.json();
                 if (data && data.titles) {
-                    meta.titleEn = data.titles.en || data.titles.ro || data.titles.ja || '';
-                    meta.titleRom = data.titles.ro || data.titles.en || '';
+                    var rom = data.titles['x-jat'] || data.titles.ro || '';
+                    var en = data.titles.en || rom || data.titles.ja || '';
+                    meta.titleEn = String(en).replace(/[`’‘]/g, "'").trim();
+                    meta.titleRom = String(rom || en).replace(/[`’‘]/g, "'").trim();
                     if (data.mappings && data.mappings.anilist_id) {
                         meta.anilistId = String(data.mappings.anilist_id);
                     }

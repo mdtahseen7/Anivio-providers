@@ -57,11 +57,14 @@ async function resolveAnimeMeta(rawId, season, episode) {
     } else if (classified.kind === 'mal') {
         queries.push('?mal_id=' + encodeURIComponent(classified.id));
     } else if (classified.kind === 'numeric') {
-        queries.push('?anilist_id=' + encodeURIComponent(classified.id));
+        // Anivio resolves IDs via TmdbService.ensureTmdbId first -> always check TMDB before AniList
         queries.push('?themoviedb_id=' + encodeURIComponent(classified.id));
+        queries.push('?anilist_id=' + encodeURIComponent(classified.id));
     }
 
     var titles = [];
+    var resolvedAnilistId = classified.kind === 'anilist' ? classified.id : null;
+    var resolvedMalId = classified.kind === 'mal' ? classified.id : null;
     for (var i = 0; i < queries.length; i++) {
         try {
             var res = await fetch(ANIZIP_ENDPOINT + queries[i], {
@@ -69,12 +72,16 @@ async function resolveAnimeMeta(rawId, season, episode) {
             });
             if (res.ok) {
                 var json = await res.json();
+                if (json && json.mappings) {
+                    if (json.mappings.anilist_id) resolvedAnilistId = String(json.mappings.anilist_id);
+                    if (json.mappings.mal_id) resolvedMalId = String(json.mappings.mal_id);
+                }
                 var tObj = (json && json.titles) ? json.titles : {};
-                if (tObj.en) titles.push(tObj.en);
-                if (tObj['x-jat']) titles.push(tObj['x-jat']);
-                if (tObj.ro) titles.push(tObj.ro);
+                if (tObj.en) titles.push(String(tObj.en).replace(/[`’‘]/g, "'"));
+                if (tObj['x-jat']) titles.push(String(tObj['x-jat']).replace(/[`’‘]/g, "'"));
+                if (tObj.ro) titles.push(String(tObj.ro).replace(/[`’‘]/g, "'"));
                 if (tObj.ja) titles.push(tObj.ja);
-                break;
+                if (titles.length > 0) break;
             }
         } catch (e) {}
     }
@@ -84,8 +91,8 @@ async function resolveAnimeMeta(rawId, season, episode) {
     }
 
     return {
-        anilistId: classified.kind === 'anilist' || classified.kind === 'numeric' ? classified.id : null,
-        malId: classified.kind === 'mal' ? classified.id : null,
+        anilistId: resolvedAnilistId,
+        malId: resolvedMalId,
         titles: titles
     };
 }

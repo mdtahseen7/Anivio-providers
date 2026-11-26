@@ -1,6 +1,6 @@
 {
   "name": "Anivio Anime Providers",
-  "version": "1.16.1",
+  "version": "1.16.2",
   "description": "High-quality anime, hentai, and torrent stream providers for Anivio",
   "scrapers": [
     {
@@ -564,7 +564,7 @@
       "id": "nyaa",
       "name": "Nyaa",
       "description": "Nyaa direct torrent provider searching nyaa.si for high-seed anime torrents.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "logo": "https://cdn.jsdelivr.net/gh/mdtahseen7/Anivio-providers@main/icons/nyaa.png",
       "supportedTypes": [
@@ -1045,7 +1045,7 @@
       "id": "anixohindi",
       "name": "AniXo Hindi",
       "description": "AniXo Hindi anime provider streaming authentic 1080p Full HD Hindi Dubbed anime series and movies with direct playback.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "mdtahseen7",
       "logo": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/tautulli.png",
       "supportedTypes": [
@@ -1074,7 +1074,7 @@
       "id": "anv",
       "name": "ANV",
       "description": "High-speed anime streaming provider powered by ANV with multi-server sub and dub HLS streams and multilingual subtitles.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "logo": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/tautulli.png",
       "supportedTypes": [
@@ -1100,7 +1100,7 @@
       "id": "anifam",
       "name": "AniFam",
       "description": "AniFam anime stream provider with direct 1080p AniFam CDN, HD-1 MegaPlay resolution, Sub & Dub audio, and multilingual subtitles.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "logo": "https://anifam.top/theme/images/icons-192.png",
       "supportedTypes": [
@@ -1152,7 +1152,7 @@
       "id": "animeworldindia",
       "name": "AnimeWorld India",
       "description": "WatchAnimeWorld India provider delivering 1080p multi-audio HLS streams (Hindi, Tamil, Telugu, Malayalam, Bengali, Marathi, English, Japanese) with subtitles across series and movies.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "logo": "https://watchanimeworld.one/favicon.ico",
       "supportedTypes": [
@@ -1184,7 +1184,7 @@
       "id": "kotokai",
       "name": "Kotokai",
       "description": "Kotokai (AnimeKaiTV) provider with automatic multi-mirror failover (animekaitv.to, anikaitv.to, animekai.se, anikai.se), Sub & Dub audio, and multilingual subtitles.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "logo": "https://animekaitv.to/favicon.ico",
       "supportedTypes": [
@@ -1236,7 +1236,7 @@
       "id": "hentaimama",
       "name": "HentaiMama",
       "description": "HentaiMama 18+ provider with direct 1080p, 720p, and 480p MP4/HLS streams via multi-mirror AJAX player extraction.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "logo": "https://hentaimama.io/favicon.ico",
       "supportedTypes": [
@@ -1264,7 +1264,7 @@
       "id": "hstream",
       "name": "Hstream",
       "description": "Hstream 18+ provider with multi-CDN 720p direct MP4 streams and English ASS subtitle tracks.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "mdtahseen7",
       "logo": "https://hstream.moe/favicon.ico",
       "supportedTypes": [

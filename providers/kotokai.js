@@ -298,8 +298,9 @@ async function resolveMetadata(rawId) {
     if (c.kind === 'anilist') queries.push('anilist_id=' + encodeURIComponent(c.id));
     else if (c.kind === 'mal') queries.push('mal_id=' + encodeURIComponent(c.id));
     else if (c.kind === 'numeric') {
-        queries.push('anilist_id=' + encodeURIComponent(c.id));
+        // Anivio resolves IDs via TmdbService.ensureTmdbId first -> always check TMDB before AniList
         queries.push('themoviedb_id=' + encodeURIComponent(c.id));
+        queries.push('anilist_id=' + encodeURIComponent(c.id));
     }
 
     for (var i = 0; i < queries.length; i++) {
@@ -310,9 +311,11 @@ async function resolveMetadata(rawId) {
             if (res.ok) {
                 var data = await res.json();
                 if (data && data.titles) {
+                    var rom = data.titles['x-jat'] || data.titles.ro || '';
+                    var en = data.titles.en || rom || data.titles.ja || '';
                     return {
-                        titleEn: data.titles.en || data.titles.ro || data.titles.ja || '',
-                        titleRom: data.titles.ro || data.titles.en || '',
+                        titleEn: String(en).replace(/[`’‘]/g, "'").trim(),
+                        titleRom: String(rom || en).replace(/[`’‘]/g, "'").trim(),
                         anilistId: data.mappings ? String(data.mappings.anilist_id || '') : '',
                         malId: data.mappings && data.mappings.mal_id != null ? String(data.mappings.mal_id) : (c.kind === 'mal' ? c.id : '')
                     };
