@@ -1073,8 +1073,8 @@
     {
       "id": "anv",
       "name": "ANV",
-      "description": "High-speed anime streaming provider powered by ANV with multi-server sub and dub HLS streams and multilingual subtitles.",
-      "version": "1.1.0",
+      "description": "High-speed anime streaming provider powered by ANV with season-aware TMDB resolution, multi-server sub and dub HLS streams, live playability verification, and multilingual subtitles.",
+      "version": "1.2.0",
       "author": "mdtahseen7",
       "logo": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/tautulli.png",
       "supportedTypes": [
