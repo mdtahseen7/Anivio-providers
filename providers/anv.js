@@ -17,15 +17,22 @@
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var ANILIST_GRAPHQL = 'https://graphql.anilist.co';
 var ANV_BASE = 'https://anv.to';
-var ANV_DEFAULT_PROXY = 'https://luna-backend.mdtahseen7378.workers.dev';
+var ANV_PROXY_BASES = [
+    'https://luna-api.mdtahseen2901.workers.dev',
+    'https://luna-backend.mdtahseen7378.workers.dev'
+];
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-function getProxyBase() {
+function getProxyBases() {
+    var bases = [];
     if (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url) {
         var b = String(SCRAPER_SETTINGS.backend_url).replace(/\/+$/, '');
-        if (b && b.indexOf('luna-api.mdtahseen2901.workers.dev') === -1) return b;
+        if (b) bases.push(b);
     }
-    return ANV_DEFAULT_PROXY;
+    for (var i = 0; i < ANV_PROXY_BASES.length; i++) {
+        if (bases.indexOf(ANV_PROXY_BASES[i]) === -1) bases.push(ANV_PROXY_BASES[i]);
+    }
+    return bases;
 }
 
 function getApiKey() {
@@ -34,8 +41,9 @@ function getApiKey() {
         : 'LetMeIn';
 }
 
-function getHlsProxyUrl(targetUrl, cookie, watchUrl) {
-    var u = getProxyBase() + '/hls?url=' + encodeURIComponent(targetUrl)
+function getHlsProxyUrl(targetUrl, cookie, watchUrl, proxyBase) {
+    var base = proxyBase || getProxyBases()[0];
+    var u = base + '/hls?url=' + encodeURIComponent(targetUrl)
         + '&apiKey=' + encodeURIComponent(getApiKey())
         + '&referer=' + encodeURIComponent(ANV_BASE + '/');
     if (cookie) u += '&cookie=' + encodeURIComponent(cookie);
@@ -589,11 +597,16 @@ async function getStreams(rawId, mediaType, season, episode) {
                 pngIndices.push(pi);
             }
         }
-        var proxiedChecks = await Promise.all(pngIndices.map(function(idx) {
-            var pUrl = getHlsProxyUrl(candidates[idx].streamUrl, cookie, watchUrl);
-            return verifyStreamSource(pUrl, { 'User-Agent': UA }).then(function(res) {
-                return { idx: idx, pUrl: pUrl, res: res };
-            });
+        var proxyBases = getProxyBases();
+        var proxiedChecks = await Promise.all(pngIndices.map(async function(idx) {
+            for (var bi = 0; bi < proxyBases.length; bi++) {
+                var pUrl = getHlsProxyUrl(candidates[idx].streamUrl, cookie, watchUrl, proxyBases[bi]);
+                var res = await verifyStreamSource(pUrl, { 'User-Agent': UA });
+                if (res && res.ok && res.isDirectTs) {
+                    return { idx: idx, pUrl: pUrl, res: res };
+                }
+            }
+            return { idx: idx, pUrl: '', res: { ok: false, isDirectTs: false } };
         }));
         var proxiedMap = {};
         for (var px = 0; px < proxiedChecks.length; px++) {
