@@ -17,7 +17,31 @@
 var ANIZIP_ENDPOINT = 'https://api.ani.zip/mappings';
 var ANILIST_GRAPHQL = 'https://graphql.anilist.co';
 var ANV_BASE = 'https://anv.to';
+var ANV_DEFAULT_PROXY = 'https://luna-backend.mdtahseen7378.workers.dev';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+function getProxyBase() {
+    if (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.backend_url) {
+        var b = String(SCRAPER_SETTINGS.backend_url).replace(/\/+$/, '');
+        if (b && b.indexOf('luna-api.mdtahseen2901.workers.dev') === -1) return b;
+    }
+    return ANV_DEFAULT_PROXY;
+}
+
+function getApiKey() {
+    return (typeof SCRAPER_SETTINGS !== 'undefined' && SCRAPER_SETTINGS && SCRAPER_SETTINGS.api_key)
+        ? SCRAPER_SETTINGS.api_key
+        : 'LetMeIn';
+}
+
+function getHlsProxyUrl(targetUrl, cookie, watchUrl) {
+    var u = getProxyBase() + '/hls?url=' + encodeURIComponent(targetUrl)
+        + '&apiKey=' + encodeURIComponent(getApiKey())
+        + '&referer=' + encodeURIComponent(ANV_BASE + '/');
+    if (cookie) u += '&cookie=' + encodeURIComponent(cookie);
+    if (watchUrl) u += '&watch=' + encodeURIComponent(watchUrl);
+    return u;
+}
 
 function sleep(ms) {
     return new Promise(function(resolve) { setTimeout(resolve, ms); });
@@ -557,11 +581,26 @@ async function getStreams(rawId, mediaType, season, episode) {
             return verifyStreamSource(c.streamUrl, headers);
         }));
 
-        // Separate natively playable direct-TS streams (0x47) vs PNG-wrapped fallback streams
-        var directStreams = [];
-        var pngFallbackStreams = [];
-        var hasDirectByVariant = {};
+        // Route PNG-wrapped servers (e.g. Orange) through Luna /hls proxy to strip fake PNG headers;
+        // verify proxied stream outputs clean 0x47 MPEG-TS so every returned server is ExoPlayer-playable.
+        var pngIndices = [];
+        for (var pi = 0; pi < candidates.length; pi++) {
+            if (checks[pi] && checks[pi].ok && !checks[pi].isDirectTs) {
+                pngIndices.push(pi);
+            }
+        }
+        var proxiedChecks = await Promise.all(pngIndices.map(function(idx) {
+            var pUrl = getHlsProxyUrl(candidates[idx].streamUrl, cookie, watchUrl);
+            return verifyStreamSource(pUrl, { 'User-Agent': UA }).then(function(res) {
+                return { idx: idx, pUrl: pUrl, res: res };
+            });
+        }));
+        var proxiedMap = {};
+        for (var px = 0; px < proxiedChecks.length; px++) {
+            proxiedMap[proxiedChecks[px].idx] = proxiedChecks[px];
+        }
 
+        var streams = [];
         for (var ci = 0; ci < candidates.length; ci++) {
             var chk = checks[ci];
             if (!chk || !chk.ok) {
@@ -570,34 +609,29 @@ async function getStreams(rawId, mediaType, season, episode) {
             }
             var c = candidates[ci];
             var epLabel = (targetSeason > 1) ? ('S' + targetSeason + 'E' + epToFetch) : ('Ep ' + epToFetch);
-            var streamObj = {
+            var finalUrl = c.streamUrl;
+            var finalHeaders = headers;
+
+            if (!chk.isDirectTs) {
+                var pxInfo = proxiedMap[ci];
+                if (!pxInfo || !pxInfo.res || !pxInfo.res.ok || !pxInfo.res.isDirectTs) {
+                    console.log('[anv] Skipping PNG-wrapped server (proxy verification failed):', c.variantLabel, c.serverLabel);
+                    continue;
+                }
+                finalUrl = pxInfo.pUrl;
+                finalHeaders = { 'User-Agent': UA };
+            }
+
+            streams.push({
                 name: 'ANV (' + c.variantLabel + ' - ' + c.serverLabel + ')',
                 title: 'ANV · ' + c.variantLabel + ' · ' + c.serverLabel + ' · ' + epLabel + ' · Multi-Quality HLS',
                 server: 'ANV - ' + c.serverLabel + ' (' + c.variantLabel + ')',
-                url: c.streamUrl,
+                url: finalUrl,
                 quality: chk.maxQuality || '1080p',
                 type: 'hls',
-                headers: headers,
+                headers: finalHeaders,
                 subtitles: c.subtitles
-            };
-
-            if (chk.isDirectTs) {
-                hasDirectByVariant[c.variantId] = true;
-                directStreams.push(streamObj);
-            } else {
-                streamObj._variantId = c.variantId;
-                pngFallbackStreams.push(streamObj);
-            }
-        }
-
-        // Only include PNG-wrapped streams for a variant if that variant has zero direct-TS streams
-        var streams = directStreams.slice();
-        for (var fi = 0; fi < pngFallbackStreams.length; fi++) {
-            var fb = pngFallbackStreams[fi];
-            if (!hasDirectByVariant[fb._variantId]) {
-                delete fb._variantId;
-                streams.push(fb);
-            }
+            });
         }
 
         console.log('[anv] returning ' + streams.length + ' verified playable streams');
